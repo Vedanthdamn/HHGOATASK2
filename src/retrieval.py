@@ -45,8 +45,17 @@ def hybrid_retrieve(store: VectorStore, query: str, top_k: int = None, query_emb
     fused_scores = reciprocal_rank_fusion([semantic_results, bm25_results])
 
     # metadata-aware boost: chunks whose passage was flagged relevant
-    # in the dataset's own annotations get a small score bump
-    SELECTED_BOOST = 0.15
+    # in the dataset's own annotations get a small score bump. Deliberately
+    # tiny: RRF contributions top out around ~0.03 (rank 0 in both channels,
+    # k=60), so anything close to that would swamp genuine relevance ranking
+    # entirely -- is_selected reflects relevance to that chunk's *own*
+    # original query in the dataset, not the current query, so a large boost
+    # let tangentially-matched chunks (e.g. sharing only a generic phrase
+    # like "क्या है") falsely climb to a normalized score near 1.0 purely
+    # from this flag. Verified via a real query ("लिफ्ट क्या है?") where
+    # unrelated chunks ("लाच क्या है?", a DVR-service FAQ) both displayed
+    # 1.00 before this fix. Kept small enough to only break near-ties.
+    SELECTED_BOOST = 0.005
     for cid, item in by_id.items():
         if item["metadata"].get("is_selected"):
             fused_scores[cid] = fused_scores.get(cid, 0.0) + SELECTED_BOOST

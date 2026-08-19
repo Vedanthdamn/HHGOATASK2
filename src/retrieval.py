@@ -13,7 +13,8 @@ from src.vectorstore import VectorStore
 class RetrievedChunk:
     chunk_id: str
     text: str
-    score: float
+    score: float  # rank-fused, then normalized by the candidate set's own max -- relative, not absolute
+    raw_semantic_score: float  # un-fused cosine similarity from dense search -- absolute, comparable across queries
     metadata: dict
     sources: list[str]
 
@@ -27,14 +28,15 @@ def reciprocal_rank_fusion(result_lists: list[list[dict]], k: int = None) -> dic
     return fused
 
 
-def hybrid_retrieve(store: VectorStore, query: str, top_k: int = None) -> list[RetrievedChunk]:
+def hybrid_retrieve(store: VectorStore, query: str, top_k: int = None, query_embedding=None) -> list[RetrievedChunk]:
     top_k = top_k or config.TOP_K_FINAL
 
-    semantic_results = store.semantic_search(query)
+    semantic_results = store.semantic_search(query, query_embedding=query_embedding)
     bm25_results = store.bm25_search(query)
 
     by_id: dict[str, dict] = {}
     sources: dict[str, set[str]] = {}
+    raw_semantic_scores: dict[str, float] = {r["chunk_id"]: r["score"] for r in semantic_results}
     for results in (semantic_results, bm25_results):
         for r in results:
             by_id[r["chunk_id"]] = r
@@ -60,6 +62,7 @@ def hybrid_retrieve(store: VectorStore, query: str, top_k: int = None) -> list[R
                 chunk_id=cid,
                 text=item["text"],
                 score=fused_scores[cid] / max_score if max_score else 0.0,
+                raw_semantic_score=raw_semantic_scores.get(cid, 0.0),
                 metadata=item["metadata"],
                 sources=sorted(sources[cid]),
             )

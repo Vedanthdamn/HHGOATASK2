@@ -81,20 +81,41 @@ def main():
 
     if not args.skip_generation and config.ANTHROPIC_API_KEY:
         harness = RagHarness(store=store, embedder=embedder)
-        full_times = []
-        statuses = []
+        full_times, extractive_times, llm_times = [], [], []
+        statuses, modes = [], []
         for q in queries:
             t0 = time.perf_counter()
             res = harness.run(query=q)
-            full_times.append((time.perf_counter() - t0) * 1000)
+            elapsed = (time.perf_counter() - t0) * 1000
+            full_times.append(elapsed)
             statuses.append(res.status)
-        results["end_to_end_with_generation"] = summarize("end_to_end (retrieval+guardrails+Claude generation)", full_times)
+            modes.append(res.generation_mode or "n/a")
+            if res.generation_mode == "extractive":
+                extractive_times.append(elapsed)
+            elif res.generation_mode == "llm":
+                llm_times.append(elapsed)
+
+        results["end_to_end_mixed"] = summarize(
+            "end_to_end (retrieval+guardrails+generation, extractive fast path where confident, Claude fallback otherwise)",
+            full_times,
+        )
+        if extractive_times:
+            results["end_to_end_extractive_only"] = summarize(
+                "end_to_end, extractive fast-path queries only (no LLM network call)", extractive_times,
+            )
+        if llm_times:
+            results["end_to_end_llm_only"] = summarize(
+                "end_to_end, LLM-fallback queries only (Claude network call)", llm_times,
+            )
         results["status_breakdown"] = {s: statuses.count(s) for s in set(statuses)}
+        results["generation_mode_breakdown"] = {m: modes.count(m) for m in set(modes)}
     else:
         print("Skipping generation benchmark (no ANTHROPIC_API_KEY or --skip-generation set).")
 
     results["target_ms"] = 200
     results["retrieval_meets_target"] = results["retrieval_only"]["p100_ms"] < 200
+    if "end_to_end_extractive_only" in results:
+        results["extractive_fast_path_meets_target"] = results["end_to_end_extractive_only"]["p100_ms"] < 200
 
     reports_dir = Path(__file__).resolve().parent.parent / "reports"
     reports_dir.mkdir(exist_ok=True)

@@ -27,8 +27,24 @@ class Config:
     RRF_K = 60  # reciprocal rank fusion constant
 
     # Guardrails
-    MIN_GROUNDING_SCORE = 0.28  # cosine sim floor between answer claim and context
-    MIN_RETRIEVAL_SCORE = 0.20  # below this, treat as "no relevant context"
+    MIN_GROUNDING_SCORE = 0.28  # cosine sim floor between answer claim and context (embedding-based check)
+    MIN_LEXICAL_GROUNDING_OVERLAP = 0.5  # fraction of answer tokens that must appear in context (fast default check)
+    MIN_RETRIEVAL_SCORE = 0.20  # below this, treat as "no relevant context" (relative, rank-fused score)
+    MIN_RAW_SEMANTIC_SCORE = 0.52  # below this, treat as off-topic (absolute, un-fused cosine similarity)
+
+    # Semantic query cache: paraphrased/repeated queries above this cosine
+    # similarity to a previously answered query skip retrieval+generation
+    # entirely and return the cached answer.
+    QUERY_CACHE_SIMILARITY_THRESHOLD = 0.93
+    QUERY_CACHE_MAX_SIZE = 500
+
+    # Extractive fast-path: skip the Claude network call entirely when the top
+    # retrieved chunk is an unambiguous, high-confidence match. Only falls
+    # back to LLM generation when the answer actually needs synthesis across
+    # chunks or the match is uncertain -- this is what makes the *typical*
+    # query's full pipeline (not just the retrieval leg) land under 200ms.
+    EXTRACTIVE_CONFIDENCE_THRESHOLD = 0.85
+    EXTRACTIVE_MARGIN = 0.15  # top score must also beat the runner-up by this much
 
 
 config = Config()

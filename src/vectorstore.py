@@ -89,9 +89,9 @@ class VectorStore:
                 self.bm25_chunk_ids = pickle.load(f)
 
     # ---------------- querying ----------------
-    def semantic_search(self, query: str, top_k: int = None) -> list[dict]:
+    def semantic_search(self, query: str, top_k: int = None, query_embedding=None) -> list[dict]:
         top_k = top_k or config.TOP_K_SEMANTIC
-        query_emb = self.embedder.encode_one(query)
+        query_emb = query_embedding if query_embedding is not None else self.embedder.encode_one(query)
         results = self.collection.query(
             query_embeddings=[query_emb.tolist()],
             n_results=top_k,

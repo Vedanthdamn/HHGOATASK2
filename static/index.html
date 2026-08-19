@@ -23,7 +23,7 @@
 </head>
 <body>
   <h1>🎙️ HH Goa — Voice-Enabled RAG (MSMARCO-XI)</h1>
-  <p>Speak a question, or type one. Pipeline: STT (Sarvam) → hybrid retrieval (Chroma + BM25) → guardrails → Claude generation → grounding check.</p>
+  <p>Speak a question, or type one. Pipeline: STT (Sarvam) → hybrid retrieval (Chroma + BM25) → guardrails → tiered generation (extractive → extractive synthesis → Claude fallback) → grounding check.</p>
 
   <div>
     <button id="recordBtn">● Start recording</button>
@@ -92,7 +92,12 @@ function renderResult(data) {
   let html = `<div class="card status-${data.status}">`;
   html += `<p><strong>Query:</strong> ${escapeHtml(data.query || '')}</p>`;
   if (data.status === 'answered') {
-    html += `<p><strong>Answer:</strong> ${escapeHtml(data.answer)}</p>`;
+    const modeLabels = {
+      extractive: 'extractive fast path, no LLM call',
+      extractive_synthesis: 'multi-chunk extractive synthesis, no LLM call',
+      llm: 'Claude generation',
+    };
+    html += `<p><strong>Answer</strong> <span style="opacity:0.6">(${modeLabels[data.generation_mode] || data.generation_mode})${data.cache_hit ? ' <span style=\"color:#2a9d5c\">[cache hit]</span>' : ''}</span>: ${escapeHtml(data.answer)}</p>`;
     html += `<p>Grounding score: ${data.grounding_score?.toFixed(2)} · Retrieval score: ${data.retrieval_score?.toFixed(2)}</p>`;
   } else if (data.status === 'refused') {
     html += `<p><strong>Declined to answer</strong> (stage: ${data.refusal_stage})</p>`;

@@ -50,6 +50,37 @@ SYSTEM_PROMPT = (
 )
 
 
+def try_extractive_answer(chunks: list[RetrievedChunk]) -> dict | None:
+    """Non-LLM fast path: if the top chunk is an unambiguous, high-confidence
+    match (score above a floor AND a clear margin over the runner-up), return
+    it directly as the answer instead of paying for an LLM decode.
+
+    This is what makes the *typical* query's full pipeline -- not just the
+    retrieval leg -- land under 200ms: no network call at all for the
+    confident case. Ambiguous or multi-chunk-synthesis cases still fall
+    through to `generate_answer` (the LLM path), so nothing here trades away
+    quality on hard questions -- it only short-circuits the easy ones.
+    """
+    if not chunks:
+        return None
+
+    top = chunks[0]
+    if top.score < config.EXTRACTIVE_CONFIDENCE_THRESHOLD:
+        return None
+
+    runner_up_score = chunks[1].score if len(chunks) > 1 else 0.0
+    if (top.score - runner_up_score) < config.EXTRACTIVE_MARGIN:
+        return None
+
+    return {
+        "grounded": True,
+        "answer": top.text,
+        "cited_chunk_ids": [top.chunk_id],
+        "refusal_reason": None,
+        "mode": "extractive",
+    }
+
+
 def get_client() -> anthropic.Anthropic:
     global _client
     if _client is None:
@@ -84,6 +115,7 @@ def generate_answer(query: str, chunks: list[RetrievedChunk]) -> dict:
             result = dict(block.input)
             result.setdefault("cited_chunk_ids", [])
             result.setdefault("refusal_reason", None)
+            result["mode"] = "llm"
             return result
 
     raise RuntimeError("Claude did not return a submit_answer tool call")

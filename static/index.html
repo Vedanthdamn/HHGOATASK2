@@ -4,38 +4,160 @@
 <meta charset="utf-8" />
 <title>HH Goa — Voice RAG</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Imbue:opsz,wght@10..100,400..700&family=Victor+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: light dark; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; line-height: 1.5; }
-  h1 { font-size: 1.4rem; }
-  #recordBtn { font-size: 1rem; padding: 12px 24px; border-radius: 8px; border: none; background: #d64545; color: white; cursor: pointer; }
-  #recordBtn.recording { background: #333; }
-  textarea { width: 100%; box-sizing: border-box; padding: 10px; font-size: 1rem; border-radius: 6px; }
-  button.secondary { padding: 10px 16px; border-radius: 6px; border: 1px solid #888; background: transparent; cursor: pointer; }
-  .card { border: 1px solid #8884; border-radius: 10px; padding: 14px 16px; margin-top: 16px; }
-  .status-answered { border-color: #2a9d5c; }
-  .status-refused { border-color: #d6a545; }
-  .status-error { border-color: #d64545; }
-  .chunk { font-size: 0.85rem; opacity: 0.8; border-top: 1px solid #8882; padding-top: 8px; margin-top: 8px; }
-  .timings { font-size: 0.8rem; opacity: 0.7; }
-  code { font-size: 0.8rem; }
+  :root {
+    --bg: #0b6839;
+    --bg-deep: #084d2a;
+    --fg: #ffffff;
+    --gold: #fee101;
+    --pink: #ff0080;
+    --panel: #0e7a42;
+    --panel-border: rgba(255,255,255,0.18);
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Victor Mono", ui-monospace, monospace;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+    line-height: 1.5;
+  }
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    opacity: 0.85; margin-bottom: 34px;
+  }
+  .topbar .dot { color: var(--gold); }
+  h1 {
+    font-family: "Imbue", serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: clamp(36px, 7vw, 64px);
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    color: var(--gold);
+    margin: 0 0 6px;
+  }
+  h1 .sticker {
+    display: inline-block;
+    background: var(--pink);
+    color: var(--gold);
+    padding: 2px 12px;
+    transform: rotate(-2deg);
+    border-radius: 6px;
+    font-size: 0.62em;
+    vertical-align: middle;
+    margin: 0 4px;
+  }
+  .subtitle {
+    font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
+    opacity: 0.85; margin: 0 0 34px; max-width: 640px;
+  }
+  .subtitle b { color: var(--gold); font-weight: 600; }
+
+  .statgrid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    margin-bottom: 36px;
+  }
+  .stat {
+    border: 1px dashed var(--panel-border);
+    padding: 12px 10px;
+    text-align: center;
+  }
+  .stat .num { font-family: "Imbue", serif; font-size: 26px; color: var(--gold); font-weight: 700; }
+  .stat .label { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.8; margin-top: 4px; }
+
+  .controls { margin-bottom: 30px; }
+  .btn-primary, .btn-secondary {
+    font-family: "Victor Mono", monospace;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 13px;
+    cursor: pointer;
+    border: 2px solid var(--gold);
+    background: var(--gold);
+    color: #0b0b0b;
+    padding: 13px 26px;
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px);
+  }
+  .btn-primary.recording { background: var(--pink); border-color: var(--pink); color: #fff; }
+  .btn-secondary {
+    background: transparent; color: var(--gold);
+    background-image: none;
+  }
+  #recStatus { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 12px; opacity: 0.85; }
+
+  textarea {
+    width: 100%; box-sizing: border-box; padding: 12px; margin-top: 16px;
+    font-family: "Victor Mono", monospace; font-size: 14px;
+    background: var(--bg-deep); color: var(--fg);
+    border: 1px solid var(--panel-border);
+  }
+  textarea::placeholder { color: rgba(255,255,255,0.4); }
+
+  .card {
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+    padding: 22px;
+    margin-top: 26px;
+  }
+  .badge {
+    display: inline-block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    font-weight: 700; padding: 4px 10px; border: 1px dashed currentColor; margin-bottom: 14px;
+  }
+  .status-answered .badge { color: var(--gold); }
+  .status-refused .badge { color: var(--pink); }
+  .status-error .badge { color: #ff5b5b; }
+
+  .query-line { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; margin-bottom: 4px; }
+  .answer-text { font-size: 16px; line-height: 1.6; margin: 6px 0 16px; }
+  .mode-tag { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gold); opacity: 0.85; }
+  .cache-tag { color: var(--pink); }
+  .scores { font-size: 12px; opacity: 0.85; margin-top: 10px; }
+  .timings { font-size: 11px; opacity: 0.6; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .chunks { margin-top: 18px; border-top: 1px dashed var(--panel-border); padding-top: 14px; }
+  .chunks-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; margin-bottom: 8px; }
+  .chunk-row { font-size: 12.5px; opacity: 0.85; margin-bottom: 8px; padding-left: 16px; position: relative; }
+  .chunk-row::before { content: "✦"; position: absolute; left: 0; color: var(--gold); }
+  .chunk-score { color: var(--gold); opacity: 1; }
+
+  footer { margin-top: 60px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.5; }
 </style>
 </head>
 <body>
-  <h1>🎙️ HH Goa — Voice-Enabled RAG (MSMARCO-XI)</h1>
-  <p>Speak a question, or type one. Pipeline: STT (Sarvam) → hybrid retrieval (Chroma + BM25) → guardrails → tiered generation (extractive → extractive synthesis → Claude fallback) → grounding check.</p>
+  <div class="topbar">
+    <span>🎙️ Voice RAG · MSMARCO-XI</span>
+    <span><span class="dot">●</span> HH Goa 2026 · Task #2</span>
+  </div>
 
-  <div>
-    <button id="recordBtn">● Start recording</button>
+  <h1>ASK <span class="sticker">पूछो</span> ANYTHING</h1>
+  <p class="subtitle">Speak or type a question. <b>Sarvam STT</b> → <b>hybrid retrieval</b> (Chroma + BM25) → <b>guardrails</b> → <b>tiered generation</b> (extractive → synthesis → Claude fallback) → <b>grounding check</b>.</p>
+
+  <div class="statgrid">
+    <div class="stat"><div class="num">21ms</div><div class="label">P50 Retrieval</div></div>
+    <div class="stat"><div class="num">48ms</div><div class="label">P50 Full Pipeline</div></div>
+    <div class="stat"><div class="num">3281</div><div class="label">Indexed Chunks</div></div>
+    <div class="stat"><div class="num">4</div><div class="label">Guardrail Layers</div></div>
+  </div>
+
+  <div class="controls">
+    <button id="recordBtn" class="btn-primary">● Start Recording</button>
     <span id="recStatus"></span>
   </div>
 
+  <textarea id="textQuery" rows="2" placeholder="...or type a question here"></textarea>
   <div style="margin-top:12px;">
-    <textarea id="textQuery" rows="2" placeholder="...or type a question here"></textarea>
-    <button class="secondary" id="askTextBtn" style="margin-top:8px;">Ask (text)</button>
+    <button class="btn-secondary" id="askTextBtn">Ask (Text) →</button>
   </div>
 
   <div id="result"></div>
+
+  <footer>© 2026 · Built for HH Goa Task #2 · Voice-Enabled RAG · #RAGInGoa</footer>
 
 <script>
 let mediaRecorder, chunks = [];
@@ -54,7 +176,7 @@ recordBtn.onclick = async () => {
   mediaRecorder.ondataavailable = e => chunks.push(e.data);
   mediaRecorder.onstop = async () => {
     recordBtn.classList.remove('recording');
-    recordBtn.textContent = '● Start recording';
+    recordBtn.textContent = '● Start Recording';
     recStatus.textContent = 'Transcribing + answering...';
     const blob = new Blob(chunks, { type: 'audio/webm' });
     const form = new FormData();
@@ -65,21 +187,21 @@ recordBtn.onclick = async () => {
       const data = await resp.json();
       renderResult(data);
     } catch (e) {
-      resultDiv.innerHTML = `<div class="card status-error">Request failed: ${e}</div>`;
+      resultDiv.innerHTML = `<div class="card status-error"><span class="badge">Error</span><p>Request failed: ${e}</p></div>`;
     }
     recStatus.textContent = '';
     stream.getTracks().forEach(t => t.stop());
   };
   mediaRecorder.start();
   recordBtn.classList.add('recording');
-  recordBtn.textContent = '■ Stop recording';
+  recordBtn.textContent = '■ Stop Recording';
   recStatus.textContent = 'Recording...';
 };
 
 document.getElementById('askTextBtn').onclick = async () => {
   const q = document.getElementById('textQuery').value.trim();
   if (!q) return;
-  resultDiv.innerHTML = '<div class="card">Thinking...</div>';
+  resultDiv.innerHTML = '<div class="card"><span class="badge">Working</span><p>Thinking...</p></div>';
   const resp = await fetch('/ask', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: q })
@@ -88,28 +210,36 @@ document.getElementById('askTextBtn').onclick = async () => {
   renderResult(data);
 };
 
+const modeLabels = {
+  extractive: 'extractive · no LLM call',
+  extractive_synthesis: 'multi-chunk synthesis · no LLM call',
+  llm: 'Claude generation',
+};
+const statusBadge = { answered: 'Answered', refused: 'Declined to Answer', error: 'Error' };
+
 function renderResult(data) {
   let html = `<div class="card status-${data.status}">`;
-  html += `<p><strong>Query:</strong> ${escapeHtml(data.query || '')}</p>`;
+  html += `<span class="badge">${statusBadge[data.status] || data.status}</span>`;
+  html += `<div class="query-line">Query</div>`;
+  html += `<div class="answer-text" style="opacity:0.9; font-size:14px;">${escapeHtml(data.query || '')}</div>`;
+
   if (data.status === 'answered') {
-    const modeLabels = {
-      extractive: 'extractive fast path, no LLM call',
-      extractive_synthesis: 'multi-chunk extractive synthesis, no LLM call',
-      llm: 'Claude generation',
-    };
-    html += `<p><strong>Answer</strong> <span style="opacity:0.6">(${modeLabels[data.generation_mode] || data.generation_mode})${data.cache_hit ? ' <span style=\"color:#2a9d5c\">[cache hit]</span>' : ''}</span>: ${escapeHtml(data.answer)}</p>`;
-    html += `<p>Grounding score: ${data.grounding_score?.toFixed(2)} · Retrieval score: ${data.retrieval_score?.toFixed(2)}</p>`;
+    html += `<div class="query-line">Answer <span class="mode-tag">(${modeLabels[data.generation_mode] || data.generation_mode})${data.cache_hit ? ' <span class="cache-tag">[cache hit]</span>' : ''}</span></div>`;
+    html += `<div class="answer-text">${escapeHtml(data.answer)}</div>`;
+    html += `<div class="scores">Grounding score: ${data.grounding_score?.toFixed(2)} · Retrieval score: ${data.retrieval_score?.toFixed(2)}</div>`;
   } else if (data.status === 'refused') {
-    html += `<p><strong>Declined to answer</strong> (stage: ${data.refusal_stage})</p>`;
-    html += `<p>${escapeHtml(data.refusal_reason || '')}</p>`;
+    html += `<div class="query-line">Declined at stage: ${data.refusal_stage}</div>`;
+    html += `<div class="answer-text">${escapeHtml(data.refusal_reason || '')}</div>`;
   } else {
-    html += `<p><strong>Error:</strong> ${escapeHtml(data.error || '')}</p>`;
+    html += `<div class="answer-text">${escapeHtml(data.error || '')}</div>`;
   }
-  html += `<p class="timings">Total: ${data.total_ms?.toFixed(1)}ms · Retrieval leg: ${data.retrieval_ms?.toFixed(1)}ms</p>`;
+
+  html += `<div class="timings">Total: ${data.total_ms?.toFixed(1)}ms · Retrieval leg: ${data.retrieval_ms?.toFixed(1)}ms</div>`;
+
   if (data.retrieved_chunks && data.retrieved_chunks.length) {
-    html += '<div class="chunk"><strong>Retrieved context:</strong>';
+    html += '<div class="chunks"><div class="chunks-label">Retrieved Context</div>';
     for (const c of data.retrieved_chunks) {
-      html += `<div>[${c.score.toFixed(2)} · ${c.metadata.strategy}] ${escapeHtml(c.text)}</div>`;
+      html += `<div class="chunk-row"><span class="chunk-score">[${c.score.toFixed(2)} · ${c.metadata.strategy}]</span> ${escapeHtml(c.text)}</div>`;
     }
     html += '</div>';
   }

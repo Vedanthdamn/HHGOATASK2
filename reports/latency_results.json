@@ -1,0 +1,26 @@
+{
+  "retrieval_only": {
+    "stage": "retrieval_only (embed+ANN+BM25+fusion)",
+    "n": 50,
+    "p50_ms": 29.71,
+    "p70_ms": 37.98,
+    "p100_ms": 59.83,
+    "mean_ms": 33.04,
+    "min_ms": 18.77
+  },
+  "end_to_end_with_generation": {
+    "stage": "end_to_end (retrieval+guardrails+Claude generation)",
+    "n": 50,
+    "p50_ms": 4719.25,
+    "p70_ms": 5513.25,
+    "p100_ms": 7382.04,
+    "mean_ms": 4739.67,
+    "min_ms": 2563.23
+  },
+  "status_breakdown": {
+    "refused": 28,
+    "answered": 22
+  },
+  "target_ms": 200,
+  "retrieval_meets_target": true
+}

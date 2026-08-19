@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>HH Goa — Voice RAG</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; line-height: 1.5; }
+  h1 { font-size: 1.4rem; }
+  #recordBtn { font-size: 1rem; padding: 12px 24px; border-radius: 8px; border: none; background: #d64545; color: white; cursor: pointer; }
+  #recordBtn.recording { background: #333; }
+  textarea { width: 100%; box-sizing: border-box; padding: 10px; font-size: 1rem; border-radius: 6px; }
+  button.secondary { padding: 10px 16px; border-radius: 6px; border: 1px solid #888; background: transparent; cursor: pointer; }
+  .card { border: 1px solid #8884; border-radius: 10px; padding: 14px 16px; margin-top: 16px; }
+  .status-answered { border-color: #2a9d5c; }
+  .status-refused { border-color: #d6a545; }
+  .status-error { border-color: #d64545; }
+  .chunk { font-size: 0.85rem; opacity: 0.8; border-top: 1px solid #8882; padding-top: 8px; margin-top: 8px; }
+  .timings { font-size: 0.8rem; opacity: 0.7; }
+  code { font-size: 0.8rem; }
+</style>
+</head>
+<body>
+  <h1>🎙️ HH Goa — Voice-Enabled RAG (MSMARCO-XI)</h1>
+  <p>Speak a question, or type one. Pipeline: STT (Sarvam) → hybrid retrieval (Chroma + BM25) → guardrails → Claude generation → grounding check.</p>
+
+  <div>
+    <button id="recordBtn">● Start recording</button>
+    <span id="recStatus"></span>
+  </div>
+
+  <div style="margin-top:12px;">
+    <textarea id="textQuery" rows="2" placeholder="...or type a question here"></textarea>
+    <button class="secondary" id="askTextBtn" style="margin-top:8px;">Ask (text)</button>
+  </div>
+
+  <div id="result"></div>
+
+<script>
+let mediaRecorder, chunks = [];
+const recordBtn = document.getElementById('recordBtn');
+const recStatus = document.getElementById('recStatus');
+const resultDiv = document.getElementById('result');
+
+recordBtn.onclick = async () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    return;
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = new MediaRecorder(stream);
+  chunks = [];
+  mediaRecorder.ondataavailable = e => chunks.push(e.data);
+  mediaRecorder.onstop = async () => {
+    recordBtn.classList.remove('recording');
+    recordBtn.textContent = '● Start recording';
+    recStatus.textContent = 'Transcribing + answering...';
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const form = new FormData();
+    form.append('file', blob, 'audio.webm');
+    form.append('language_code', 'hi-IN');
+    try {
+      const resp = await fetch('/ask-audio', { method: 'POST', body: form });
+      const data = await resp.json();
+      renderResult(data);
+    } catch (e) {
+      resultDiv.innerHTML = `<div class="card status-error">Request failed: ${e}</div>`;
+    }
+    recStatus.textContent = '';
+    stream.getTracks().forEach(t => t.stop());
+  };
+  mediaRecorder.start();
+  recordBtn.classList.add('recording');
+  recordBtn.textContent = '■ Stop recording';
+  recStatus.textContent = 'Recording...';
+};
+
+document.getElementById('askTextBtn').onclick = async () => {
+  const q = document.getElementById('textQuery').value.trim();
+  if (!q) return;
+  resultDiv.innerHTML = '<div class="card">Thinking...</div>';
+  const resp = await fetch('/ask', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: q })
+  });
+  const data = await resp.json();
+  renderResult(data);
+};
+
+function renderResult(data) {
+  let html = `<div class="card status-${data.status}">`;
+  html += `<p><strong>Query:</strong> ${escapeHtml(data.query || '')}</p>`;
+  if (data.status === 'answered') {
+    html += `<p><strong>Answer:</strong> ${escapeHtml(data.answer)}</p>`;
+    html += `<p>Grounding score: ${data.grounding_score?.toFixed(2)} · Retrieval score: ${data.retrieval_score?.toFixed(2)}</p>`;
+  } else if (data.status === 'refused') {
+    html += `<p><strong>Declined to answer</strong> (stage: ${data.refusal_stage})</p>`;
+    html += `<p>${escapeHtml(data.refusal_reason || '')}</p>`;
+  } else {
+    html += `<p><strong>Error:</strong> ${escapeHtml(data.error || '')}</p>`;
+  }
+  html += `<p class="timings">Total: ${data.total_ms?.toFixed(1)}ms · Retrieval leg: ${data.retrieval_ms?.toFixed(1)}ms</p>`;
+  if (data.retrieved_chunks && data.retrieved_chunks.length) {
+    html += '<div class="chunk"><strong>Retrieved context:</strong>';
+    for (const c of data.retrieved_chunks) {
+      html += `<div>[${c.score.toFixed(2)} · ${c.metadata.strategy}] ${escapeHtml(c.text)}</div>`;
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  resultDiv.innerHTML = html;
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>

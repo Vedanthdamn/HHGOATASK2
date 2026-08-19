@@ -170,7 +170,17 @@ recordBtn.onclick = async () => {
     mediaRecorder.stop();
     return;
   }
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    resultDiv.innerHTML = `<div class="card status-error"><span class="badge">Error</span><p>Microphone access isn't available on this page. Open it as <code>http://localhost:${location.port || 80}</code> (not <code>${location.hostname}</code>) — browsers only allow mic access on localhost or https.</p></div>`;
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    resultDiv.innerHTML = `<div class="card status-error"><span class="badge">Error</span><p>Microphone access failed: ${escapeHtml(e.message || String(e))}. Check the browser's permission prompt/site settings.</p></div>`;
+    return;
+  }
   mediaRecorder = new MediaRecorder(stream);
   chunks = [];
   mediaRecorder.ondataavailable = e => chunks.push(e.data);

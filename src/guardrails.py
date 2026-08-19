@@ -1,7 +1,7 @@
 """Guardrails: input safety/relevance checks, retrieval-confidence gating,
-context-injection scanning, and post-hoc grounding verification.
+context-injection scanning, and post-hoc grounding/coherence verification.
 
-Four independent layers, each of which can veto the pipeline before it
+Five independent layers, each of which can veto the pipeline before it
 returns an answer to the user:
 
   1. INPUT     - blocks unsafe content and obviously off-topic chit-chat
@@ -12,8 +12,8 @@ returns an answer to the user:
                  patterns before it reaches the generator's prompt (MSMARCO
                  passages are scraped web text, so this is a real surface,
                  not a hypothetical one).
-  4. OUTPUT    - compares the answer's tokens against the retrieved context;
-                 if the answer contains claims not traceable to any
+  4. OUTPUT (grounding) - compares the answer's tokens against the retrieved
+                 context; if the answer contains claims not traceable to any
                  retrieved chunk, treat it as ungrounded/hallucinated and
                  refuse instead of returning it. Lexical (token-overlap)
                  rather than embedding-based on purpose: it is a pure string
@@ -22,6 +22,11 @@ returns an answer to the user:
                  embedding-based version is kept as `check_output_grounding`
                  for callers that want a semantic (paraphrase-tolerant)
                  check and can afford the latency.
+  5. OUTPUT (coherence) - catches degenerate/repetitive text (e.g. a neural-MT
+                 decoding-loop artifact in the source corpus) that would
+                 otherwise pass the grounding check trivially, since
+                 extractive answers are grounded in themselves by
+                 construction. See `check_answer_coherence`.
 """
 import re
 from dataclasses import dataclass
@@ -153,6 +158,34 @@ def check_output_grounding_lexical(answer: str, chunks: list[RetrievedChunk]) ->
             score=overlap,
         )
     return GuardrailResult(True, "output", score=overlap)
+
+
+def check_answer_coherence(answer: str) -> GuardrailResult:
+    """Catches degenerate/repetitive text -- e.g. a neural-MT decoding loop
+    artifact in the source corpus ("...part of the universe, and they are
+    the particles that are part of the universe, ..." repeated hundreds of
+    times) -- before it's ever returned as an answer. Extractive tiers
+    return retrieved text verbatim, so a corrupted chunk that wins
+    retrieval would otherwise sail through the grounding check (it's
+    trivially "grounded" in itself) and reach the user as a confident wall
+    of garbage. Lexical diversity (unique words / total words) is a cheap,
+    reliable signal: normal prose sits around 0.4-0.7 for a few sentences;
+    the observed real-world failure case measured ~0.016.
+    """
+    words = _WORD_RE.findall(answer.lower())
+    if len(words) < 20:
+        return GuardrailResult(True, "output")  # too short for this check to be meaningful
+
+    diversity = len(set(words)) / len(words)
+    if diversity < config.MIN_LEXICAL_DIVERSITY:
+        return GuardrailResult(
+            False, "output",
+            f"Answer lexical diversity {diversity:.3f} is below the coherence floor "
+            f"({config.MIN_LEXICAL_DIVERSITY}); text looks like a degenerate/repetitive "
+            f"artifact rather than a real answer.",
+            score=diversity,
+        )
+    return GuardrailResult(True, "output", score=diversity)
 
 
 def check_output_grounding(answer: str, chunks: list[RetrievedChunk], embedder: Embedder) -> GuardrailResult:

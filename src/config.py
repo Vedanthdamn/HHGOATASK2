@@ -29,6 +29,7 @@ class Config:
     # Guardrails
     MIN_GROUNDING_SCORE = 0.28  # cosine sim floor between answer claim and context (embedding-based check)
     MIN_LEXICAL_GROUNDING_OVERLAP = 0.5  # fraction of answer tokens that must appear in context (fast default check)
+    MIN_LEXICAL_DIVERSITY = 0.25  # unique words / total words; below this, treat answer text as degenerate/repetitive
     MIN_RETRIEVAL_SCORE = 0.20  # below this, treat as "no relevant context" (relative, rank-fused score)
     MIN_RAW_SEMANTIC_SCORE = 0.52  # below this, treat as off-topic (absolute, un-fused cosine similarity)
 

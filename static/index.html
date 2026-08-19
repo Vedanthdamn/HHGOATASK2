@@ -249,7 +249,7 @@ function renderResult(data) {
   if (data.retrieved_chunks && data.retrieved_chunks.length) {
     html += '<div class="chunks"><div class="chunks-label">Retrieved Context</div>';
     for (const c of data.retrieved_chunks) {
-      html += `<div class="chunk-row"><span class="chunk-score">[${c.score.toFixed(2)} · ${c.metadata.strategy}]</span> ${escapeHtml(c.text)}</div>`;
+      html += `<div class="chunk-row"><span class="chunk-score">[${c.score.toFixed(2)} · ${c.metadata.strategy}]</span> ${escapeHtml(truncate(c.text, 280))}</div>`;
     }
     html += '</div>';
   }
@@ -259,6 +259,11 @@ function renderResult(data) {
 
 function escapeHtml(s) {
   return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function truncate(s, maxLen) {
+  s = s || '';
+  return s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
 }
 </script>
 </body>

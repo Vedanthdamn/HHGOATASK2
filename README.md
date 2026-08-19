@@ -94,12 +94,13 @@ Each `RetrievedChunk` carries **two** scores, because they answer different ques
 
 ## Guardrails
 
-Four independent veto points (`src/guardrails.py`), any of which can end the pipeline with a `refused` result instead of a possibly-wrong answer:
+Five independent veto points (`src/guardrails.py`), any of which can end the pipeline with a `refused` result instead of a possibly-wrong answer:
 
 1. **Input** — regex-based unsafe-content filter (self-harm, weapons, CSAM, etc.) + minimum query length.
 2. **Retrieval confidence** — refuses if *either* the relative fused score *or* the absolute raw semantic similarity is below its floor. The absolute check is the one that matters for off-topic detection: empirically, genuinely on-topic queries against this corpus score 0.60–0.82 raw cosine similarity, while an off-topic query ("what is the capital of the moon") topped out at 0.47 — a clean, verified gap. The relative-only check alone is not sufficient: it normalizes by the candidate set's own max, so the top result always reads ~1.0 regardless of whether the whole candidate pool is actually relevant. *(This was a real regression: adding the non-LLM generation tiers removed Claude's own judgment call at the generation stage, which had been silently masking this gap. Caught in testing against a known off-topic query, root-caused, and fixed with the absolute floor — not patched over.)*
 3. **Context injection** — retrieved passages themselves are scanned for injection/unsafe patterns before reaching the generator. MSMARCO passages are scraped web text, so this is a real surface (indirect prompt injection via poisoned corpus content), not a hypothetical one.
 4. **Output grounding** — the answer's tokens are checked against the retrieved context by lexical overlap (fast — no model call). If the answer contains claims not traceable to any retrieved chunk, it's treated as ungrounded/hallucinated and refused. This runs independently of the model's own `grounded` self-report (forced via tool-use in `src/generation.py` for the LLM tier), so a confidently-wrong self-assessment doesn't get a free pass. (An embedding-based semantic version, `check_output_grounding`, is also available for callers that want paraphrase tolerance and can spend the ~100ms/query it costs.)
+5. **Output coherence** — catches degenerate/repetitive text (lexical diversity floor: unique words / total words). Found live: a chunk in the translated corpus contains a neural-MT decoding-loop artifact — the same phrase repeated hundreds of times — that passed the grounding check trivially (an extractive answer is, by construction, grounded in itself) despite being unreadable garbage. This guardrail refuses before it reaches the user instead of returning it as a confident answer.
 
 ## Latency
 
@@ -164,7 +165,7 @@ src/
   stt.py          Sarvam speech-to-text client
   generation.py   tier 1 (extractive) + tier 3 (Claude structured tool-call)
   extractive.py   tier 2: query-focused TextRank/LexRank multi-chunk synthesis
-  guardrails.py   input / retrieval-confidence / context-injection / output-grounding guardrails
+  guardrails.py   input / retrieval-confidence / context-injection / output-grounding / output-coherence guardrails
   harness.py      orchestration: typed stages, semantic cache, tiered generation, retries, timing, error recovery
 scripts/
   build_index.py  one-shot indexing script

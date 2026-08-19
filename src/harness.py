@@ -205,6 +205,22 @@ class RagHarness:
                 retrieval_ms=retrieval_ms, generation_mode=gen_result.get("mode", ""),
             ), timings, t_start)
 
+        # -- Stage 5.5: coherence guardrail (catches degenerate/repetitive text,
+        # e.g. an MT decoding-loop artifact -- would otherwise pass grounding
+        # trivially since extractive answers are grounded in themselves) --
+        coherence_check, err = self._time_stage(timings, "guardrail_coherence", guardrails.check_answer_coherence, gen_result["answer"])
+        if err is not None:
+            return self._finish(PipelineResult(
+                status="error", query=query, error=str(err),
+                retrieved_chunks=[asdict_chunk(c) for c in chunks], retrieval_ms=retrieval_ms,
+            ), timings, t_start)
+        if not coherence_check.passed:
+            return self._finish(PipelineResult(
+                status="refused", query=query, refusal_reason=coherence_check.reason, refusal_stage="coherence",
+                retrieved_chunks=[asdict_chunk(c) for c in chunks], grounding_score=output_check.score,
+                retrieval_ms=retrieval_ms, generation_mode=gen_result.get("mode", ""),
+            ), timings, t_start)
+
         result = self._finish(PipelineResult(
             status="answered", query=query, answer=gen_result["answer"],
             cited_chunk_ids=gen_result.get("cited_chunk_ids", []),

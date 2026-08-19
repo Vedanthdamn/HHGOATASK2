@@ -19,7 +19,7 @@ def transcribe_audio(audio_bytes: bytes, filename: str = "audio.wav", language_c
         raise STTError("SARVAM_API_KEY is not set")
 
     files = {"file": (filename, io.BytesIO(audio_bytes), "audio/wav")}
-    data = {"model": "saarika:v2", "language_code": language_code}
+    data = {"model": "saarika:v2.5", "language_code": language_code}
     headers = {"api-subscription-key": config.SARVAM_API_KEY}
 
     resp = requests.post(SARVAM_STT_URL, headers=headers, files=files, data=data, timeout=15)

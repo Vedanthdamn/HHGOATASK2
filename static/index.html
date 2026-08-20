@@ -16,7 +16,6 @@
     --pink: #ff0080;
     --panel: #0e7a42;
     --panel-border: rgba(255,255,255,0.18);
-    --dim: rgba(255,255,255,0.4);
   }
   * { box-sizing: border-box; }
   body {
@@ -69,7 +68,7 @@
 
   .statgrid {
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
-    margin-bottom: 36px;
+    margin-bottom: 44px;
   }
   .stat {
     border: 1px dashed var(--panel-border);
@@ -79,89 +78,53 @@
   .stat .num { font-family: "Imbue", serif; font-size: 26px; color: var(--gold); font-weight: 700; }
   .stat .label { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.8; margin-top: 4px; }
 
-  .controls { margin-bottom: 30px; }
-  .btn-primary, .btn-secondary {
-    font-family: "Victor Mono", monospace;
-    font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
-    font-size: 13px;
-    cursor: pointer;
-    border: 2px solid var(--gold);
-    background: var(--gold);
-    color: #0b0b0b;
-    padding: 13px 26px;
-    background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px);
+  .section-label {
+    font-family: "Imbue", serif; font-weight: 700; text-transform: uppercase;
+    font-size: 13px; letter-spacing: 0.08em; color: var(--gold); opacity: 0.9;
+    margin-bottom: 14px;
   }
-  .btn-primary.recording { background: var(--pink); border-color: var(--pink); color: #fff; }
-  .btn-secondary {
-    background: transparent; color: var(--gold);
-    background-image: none;
-  }
-  #recStatus { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 12px; opacity: 0.85; }
 
-  textarea {
-    width: 100%; box-sizing: border-box; padding: 12px; margin-top: 16px;
-    font-family: "Victor Mono", monospace; font-size: 14px;
-    background: var(--bg-deep); color: var(--fg);
-    border: 1px solid var(--panel-border);
-  }
-  textarea::placeholder { color: rgba(255,255,255,0.4); }
-
-  .quickrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
-  .quickrow .qlabel { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.6; margin-right: 2px; }
-  .chip {
-    font-family: "Victor Mono", monospace; font-size: 11px;
-    background: transparent; color: var(--fg); opacity: 0.85;
-    border: 1px solid var(--panel-border); padding: 6px 12px; cursor: pointer;
-  }
-  .chip:hover { border-color: var(--gold); color: var(--gold); opacity: 1; }
-  .chip.chip-guardrail { border-style: dashed; border-color: var(--pink); color: var(--pink); opacity: 1; }
-
-  .card {
+  .taskcard {
     border: 1px solid var(--panel-border);
     background: var(--panel);
-    padding: 22px;
-    margin-top: 26px;
+    padding: 30px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 22px;
+    align-items: start;
+    text-decoration: none;
+    color: var(--fg);
+    transition: border-color 0.15s;
   }
-  .badge {
+  .taskcard:hover { border-color: var(--gold); }
+  .taskcard .icon {
+    font-size: 44px; line-height: 1;
+    width: 72px; height: 72px; display: flex; align-items: center; justify-content: center;
+    background: var(--bg-deep); border: 1px dashed var(--panel-border);
+  }
+  .taskcard .badge {
     display: inline-block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
-    font-weight: 700; padding: 4px 10px; border: 1px dashed currentColor; margin-bottom: 14px;
+    font-weight: 700; padding: 4px 10px; border: 1px dashed var(--gold); color: var(--gold);
+    margin-bottom: 10px;
   }
-  .status-answered .badge { color: var(--gold); }
-  .status-refused .badge { color: var(--pink); }
-  .status-error .badge { color: #ff5b5b; }
-
-  .query-line { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; margin-bottom: 4px; }
-  .answer-text { font-size: 16px; line-height: 1.6; margin: 6px 0 16px; }
-  .mode-tag { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gold); opacity: 0.85; }
-  .cache-tag { color: var(--pink); }
-  .scores { font-size: 12px; opacity: 0.85; margin-top: 10px; }
-  .timings { font-size: 11px; opacity: 0.6; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
-
-  .chunks { margin-top: 18px; border-top: 1px dashed var(--panel-border); padding-top: 14px; }
-  .chunks-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; margin-bottom: 8px; }
-  .chunk-row { font-size: 12.5px; opacity: 0.85; margin-bottom: 8px; padding-left: 16px; position: relative; }
-  .chunk-row::before { content: "✦"; position: absolute; left: 0; color: var(--gold); }
-  .chunk-score { color: var(--gold); opacity: 1; }
-
-  .panelgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
-  @media (max-width: 700px) { .panelgrid { grid-template-columns: 1fr; } }
-  .panel-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; margin-bottom: 12px; }
-
-  .stagebar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 11px; }
-  .stagebar-name { width: 128px; flex-shrink: 0; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.02em; font-size: 10px; }
-  .stagebar-track { flex: 1; height: 6px; background: var(--bg-deep); position: relative; overflow: hidden; }
-  .stagebar-fill { height: 100%; background: var(--gold); }
-  .stagebar-ms { width: 56px; text-align: right; flex-shrink: 0; color: var(--gold); font-size: 10px; }
-
-  .guardrail-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px dashed var(--panel-border); font-size: 11px; }
-  .guardrail-row:last-child { border-bottom: none; }
-  .guardrail-name { opacity: 0.85; }
-  .guardrail-status { font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; padding: 3px 8px; border: 1px solid currentColor; }
-  .guardrail-status.pass { color: var(--gold); }
-  .guardrail-status.blocked { color: var(--pink); }
-  .guardrail-status.skipped { color: var(--dim); border-color: var(--dim); }
+  .taskcard h2 {
+    font-family: "Imbue", serif; font-weight: 700; text-transform: uppercase;
+    font-size: 26px; margin: 0 0 8px; color: var(--fg);
+  }
+  .taskcard p.desc { font-size: 13px; opacity: 0.85; margin: 0 0 16px; line-height: 1.6; }
+  .taskcard ul { list-style: none; margin: 0 0 20px; padding: 0; font-size: 12px; }
+  .taskcard li { padding-left: 18px; position: relative; margin-bottom: 6px; opacity: 0.9; }
+  .taskcard li::before { content: "✦"; position: absolute; left: 0; color: var(--gold); }
+  .taskcard .cta {
+    display: inline-block;
+    font-family: "Victor Mono", monospace; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 13px; border: 2px solid var(--gold); background: var(--gold); color: #0b0b0b;
+    padding: 12px 24px;
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px);
+  }
 
   footer { margin-top: 60px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.5; }
+  a.footer-link { color: var(--gold); text-decoration: none; }
 </style>
 </head>
 <body>
@@ -171,7 +134,7 @@
   </div>
 
   <h1>ASK <span class="sticker">पूछो</span> ANYTHING</h1>
-  <p class="subtitle">Speak or type a question. <b>Sarvam STT</b> → <b>hybrid retrieval</b> (Chroma + BM25) → <b>guardrails</b> → <b>tiered generation</b> (extractive → synthesis → Claude fallback) → <b>grounding check</b>.</p>
+  <p class="subtitle">A voice-in, answer-out Retrieval-Augmented Generation system. <b>Sarvam STT</b> → <b>hybrid retrieval</b> (Chroma + BM25) → <b>guardrails</b> → <b>tiered generation</b> (extractive → synthesis → Claude fallback) → <b>grounding check</b>.</p>
 
   <div class="techrow">
     <span class="techpill">Sarvam STT</span>
@@ -189,211 +152,26 @@
     <div class="stat"><div class="num">5</div><div class="label">Guardrail Layers</div></div>
   </div>
 
-  <div class="controls">
-    <button id="recordBtn" class="btn-primary">● Start Recording</button>
-    <span id="recStatus"></span>
-  </div>
+  <div class="section-label">Open the build</div>
 
-  <textarea id="textQuery" rows="2" placeholder="...or type a question here"></textarea>
-  <div style="margin-top:12px;">
-    <button class="btn-secondary" id="askTextBtn">Ask (Text) →</button>
-  </div>
+  <a class="taskcard" href="/app">
+    <div class="icon">🎙️</div>
+    <div>
+      <span class="badge">Task #2</span>
+      <h2>Ask Anything</h2>
+      <p class="desc">Speak a question, get a grounded answer. A full voice-to-answer RAG pipeline — transcription, engineered chunking, vector retrieval, and tiered generation — wired end to end, fast and guardrailed.</p>
+      <ul>
+        <li>Real voice-to-text input, not typed</li>
+        <li>Multi-strategy chunking, not one naive split</li>
+        <li>Full pipeline under 200ms on the confident-match path</li>
+        <li>P50 / P70 / P100 latency benchmarked across real queries</li>
+        <li>Runs inside a real harness — retries, structured I/O, error recovery</li>
+        <li>Guardrails that know when not to answer</li>
+      </ul>
+      <span class="cta">Open Interface →</span>
+    </div>
+  </a>
 
-  <div class="quickrow">
-    <span class="qlabel">Try:</span>
-    <button class="chip" data-q="मैनहट्टन परियोजना की सफलता का तुरंत क्या प्रभाव पड़ा?">Manhattan Project</button>
-    <button class="chip" data-q="लिफ्ट का मतलब है">What is a lift?</button>
-    <button class="chip" data-q="लिफ्ट क्या है?">Lift, rephrased</button>
-    <button class="chip chip-guardrail" data-q="capital of moon">⚠ Off-topic (guardrail demo)</button>
-    <button class="chip chip-guardrail" data-q="how to make a bomb">⚠ Unsafe (guardrail demo)</button>
-  </div>
-
-  <div id="result"></div>
-
-  <footer>© 2026 · Built for HH Goa Task #2 · Voice-Enabled RAG · #RAGInGoa</footer>
-
-<script>
-let mediaRecorder, chunks = [];
-const recordBtn = document.getElementById('recordBtn');
-const recStatus = document.getElementById('recStatus');
-const resultDiv = document.getElementById('result');
-const textQuery = document.getElementById('textQuery');
-
-recordBtn.onclick = async () => {
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    mediaRecorder.stop();
-    return;
-  }
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    resultDiv.innerHTML = `<div class="card status-error"><span class="badge">Error</span><p>Microphone access isn't available on this page. Open it as <code>http://localhost:${location.port || 80}</code> (not <code>${location.hostname}</code>) — browsers only allow mic access on localhost or https.</p></div>`;
-    return;
-  }
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (e) {
-    resultDiv.innerHTML = `<div class="card status-error"><span class="badge">Error</span><p>Microphone access failed: ${escapeHtml(e.message || String(e))}. Check the browser's permission prompt/site settings.</p></div>`;
-    return;
-  }
-  mediaRecorder = new MediaRecorder(stream);
-  chunks = [];
-  mediaRecorder.ondataavailable = e => chunks.push(e.data);
-  mediaRecorder.onstop = async () => {
-    recordBtn.classList.remove('recording');
-    recordBtn.textContent = '● Start Recording';
-    recStatus.textContent = 'Transcribing + answering...';
-    const blob = new Blob(chunks, { type: 'audio/webm' });
-    const form = new FormData();
-    form.append('file', blob, 'audio.webm');
-    form.append('language_code', 'hi-IN');
-    try {
-      const resp = await fetch('/ask-audio', { method: 'POST', body: form });
-      const data = await resp.json();
-      renderResult(data);
-    } catch (e) {
-      resultDiv.innerHTML = `<div class="card status-error"><span class="badge">Error</span><p>Request failed: ${e}</p></div>`;
-    }
-    recStatus.textContent = '';
-    stream.getTracks().forEach(t => t.stop());
-  };
-  mediaRecorder.start();
-  recordBtn.classList.add('recording');
-  recordBtn.textContent = '■ Stop Recording';
-  recStatus.textContent = 'Recording...';
-};
-
-async function askText(q) {
-  if (!q) return;
-  resultDiv.innerHTML = '<div class="card"><span class="badge">Working</span><p>Thinking...</p></div>';
-  const resp = await fetch('/ask', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: q })
-  });
-  const data = await resp.json();
-  renderResult(data);
-}
-
-document.getElementById('askTextBtn').onclick = () => askText(textQuery.value.trim());
-
-document.querySelectorAll('.chip').forEach(btn => {
-  btn.onclick = () => {
-    const q = btn.getAttribute('data-q');
-    textQuery.value = q;
-    askText(q);
-  };
-});
-
-const modeLabels = {
-  extractive: 'extractive · no LLM call',
-  extractive_synthesis: 'multi-chunk synthesis · no LLM call',
-  llm: 'Claude generation',
-};
-const statusBadge = { answered: 'Answered', refused: 'Declined to Answer', error: 'Error' };
-
-const stageLabels = {
-  stt: 'STT (Sarvam)',
-  guardrail_input: 'Guardrail: Input',
-  embed_query: 'Embed Query',
-  cache_lookup: 'Cache Lookup',
-  retrieval: 'Retrieval',
-  guardrail_retrieval: 'Guardrail: Retrieval',
-  guardrail_context: 'Guardrail: Context',
-  generation_extractive: 'Gen: Extractive',
-  generation_extractive_synthesis: 'Gen: Synthesis',
-  generation_llm: 'Gen: Claude',
-  guardrail_output: 'Guardrail: Grounding',
-  guardrail_coherence: 'Guardrail: Coherence',
-};
-
-const guardrailStages = [
-  { key: 'guardrail_input', label: 'Input Safety', refusalKey: 'input' },
-  { key: 'guardrail_retrieval', label: 'Retrieval Confidence', refusalKey: 'retrieval' },
-  { key: 'guardrail_context', label: 'Context Injection', refusalKey: 'context' },
-  { key: 'guardrail_output', label: 'Output Grounding', refusalKey: 'output' },
-  { key: 'guardrail_coherence', label: 'Output Coherence', refusalKey: 'coherence' },
-];
-
-function renderResult(data) {
-  let html = `<div class="card status-${data.status}">`;
-  html += `<span class="badge">${statusBadge[data.status] || data.status}</span>`;
-  html += `<div class="query-line">Query</div>`;
-  html += `<div class="answer-text" style="opacity:0.9; font-size:14px;">${escapeHtml(data.query || '')}</div>`;
-
-  if (data.status === 'answered') {
-    html += `<div class="query-line">Answer <span class="mode-tag">(${modeLabels[data.generation_mode] || data.generation_mode})${data.cache_hit ? ' <span class="cache-tag">[cache hit]</span>' : ''}</span></div>`;
-    html += `<div class="answer-text">${escapeHtml(data.answer)}</div>`;
-    html += `<div class="scores">Grounding score: ${data.grounding_score?.toFixed(2)} · Retrieval score: ${data.retrieval_score?.toFixed(2)}</div>`;
-  } else if (data.status === 'refused') {
-    html += `<div class="query-line">Declined at stage: ${data.refusal_stage}</div>`;
-    html += `<div class="answer-text">${escapeHtml(data.refusal_reason || '')}</div>`;
-  } else {
-    html += `<div class="answer-text">${escapeHtml(data.error || '')}</div>`;
-  }
-
-  html += `<div class="timings">Total: ${data.total_ms?.toFixed(1)}ms · Retrieval leg: ${data.retrieval_ms?.toFixed(1)}ms</div>`;
-
-  if (data.retrieved_chunks && data.retrieved_chunks.length) {
-    html += '<div class="chunks"><div class="chunks-label">Retrieved Context</div>';
-    for (const c of data.retrieved_chunks) {
-      html += `<div class="chunk-row"><span class="chunk-score">[${c.score.toFixed(2)} · ${c.metadata.strategy}]</span> ${escapeHtml(truncate(c.text, 280))}</div>`;
-    }
-    html += '</div>';
-  }
-  html += '</div>';
-
-  html += '<div class="panelgrid">';
-  html += renderTelemetry(data);
-  html += renderGuardrailAudit(data);
-  html += '</div>';
-
-  resultDiv.innerHTML = html;
-}
-
-function renderTelemetry(data) {
-  const stages = data.timings_ms || [];
-  const maxMs = Math.max(1, ...stages.map(s => s.ms));
-  let html = '<div class="card"><div class="panel-label">Pipeline Telemetry</div>';
-  if (!stages.length) {
-    html += '<div style="opacity:0.5; font-size:11px;">No stage data.</div>';
-  }
-  for (const s of stages) {
-    const pct = Math.max(2, (s.ms / maxMs) * 100);
-    const label = stageLabels[s.stage] || s.stage;
-    html += `<div class="stagebar-row">
-      <div class="stagebar-name">${escapeHtml(label)}</div>
-      <div class="stagebar-track"><div class="stagebar-fill" style="width:${pct}%"></div></div>
-      <div class="stagebar-ms">${s.ms.toFixed(1)}ms</div>
-    </div>`;
-  }
-  html += '</div>';
-  return html;
-}
-
-function renderGuardrailAudit(data) {
-  const ranStages = new Set((data.timings_ms || []).map(s => s.stage));
-  let html = '<div class="card"><div class="panel-label">Guardrail Audit</div>';
-  for (const g of guardrailStages) {
-    const ran = ranStages.has(g.key);
-    const blocked = data.status === 'refused' && data.refusal_stage === g.refusalKey;
-    const statusClass = blocked ? 'blocked' : (ran ? 'pass' : 'skipped');
-    const statusText = blocked ? 'Blocked' : (ran ? 'Pass' : 'Skipped');
-    html += `<div class="guardrail-row">
-      <span class="guardrail-name">${escapeHtml(g.label)}</span>
-      <span class="guardrail-status ${statusClass}">${statusText}</span>
-    </div>`;
-  }
-  html += '</div>';
-  return html;
-}
-
-function escapeHtml(s) {
-  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function truncate(s, maxLen) {
-  s = s || '';
-  return s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
-}
-</script>
+  <footer>© 2026 · Built for HH Goa Task #2 · Voice-Enabled RAG · #RAGInGoa · <a class="footer-link" href="https://github.com/Vedanthdamn/HHGOATASK2">Source</a></footer>
 </body>
 </html>

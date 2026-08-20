@@ -3,7 +3,8 @@
 POST /ask        - JSON {"query": "..."} text-only path (useful for testing/benchmarking)
 POST /ask-audio   - multipart audio file -> Sarvam STT -> full pipeline
 GET  /health      - liveness + index size
-GET  /            - static demo UI (mic recording -> pipeline -> answer)
+GET  /            - landing/overview page with a Task #2 card -> /app
+GET  /app         - the actual demo UI (mic recording -> pipeline -> answer)
 """
 from pathlib import Path
 
@@ -33,6 +34,11 @@ class AskRequest(BaseModel):
 @app.get("/")
 def index():
     return FileResponse(str(STATIC_DIR / "index.html"))
+
+
+@app.get("/app")
+def app_ui():
+    return FileResponse(str(STATIC_DIR / "app.html"))
 
 
 @app.get("/health")

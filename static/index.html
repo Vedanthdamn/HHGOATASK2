@@ -18,42 +18,67 @@
     --panel-border: rgba(255,255,255,0.18);
   }
   * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
   body {
     background: var(--bg);
     color: var(--fg);
     font-family: "Victor Mono", ui-monospace, monospace;
-    max-width: 880px;
-    margin: 0 auto;
-    padding: 28px 20px 60px;
     line-height: 1.5;
   }
-  .topbar {
-    display: flex; justify-content: space-between; align-items: center;
-    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
-    opacity: 0.85; margin-bottom: 34px;
+
+  /* ---------- Hero (scroll-reveal, full-bleed) ---------- */
+  .hero { position: relative; height: 170vh; }
+  .hero-sticky {
+    position: sticky; top: 0; height: 100vh; overflow: hidden;
+    display: flex; flex-direction: column; padding: 28px 24px;
+    background: var(--bg);
   }
-  .topbar .dot { color: var(--gold); }
-  h1 {
-    font-family: "Imbue", serif;
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: clamp(36px, 7vw, 64px);
-    line-height: 1.02;
-    letter-spacing: -0.01em;
-    color: var(--gold);
-    margin: 0 0 6px;
+  .hero-topbar { display: flex; justify-content: space-between; align-items: center; z-index: 3; }
+  .hero-credit {
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700;
+    color: var(--gold); display: flex; align-items: center; gap: 6px;
   }
-  h1 .sticker {
-    display: inline-block;
-    background: var(--pink);
-    color: var(--gold);
-    padding: 2px 12px;
-    transform: rotate(-2deg);
-    border-radius: 6px;
-    font-size: 0.62em;
-    vertical-align: middle;
-    margin: 0 4px;
+  .hero-actions { display: flex; align-items: center; gap: 18px; }
+  .hero-actions a { color: var(--fg); text-decoration: none; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.85; }
+  .hero-actions a:hover { opacity: 1; }
+  .hero-actions .apply {
+    border: 2px solid var(--gold); background: var(--gold); color: #0b0b0b;
+    padding: 9px 20px; font-weight: 700; opacity: 1;
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px);
   }
+
+  .hero-mid { flex: 1; display: flex; flex-direction: column; justify-content: center; z-index: 3; }
+  .hero-title {
+    font-family: "Imbue", serif; font-weight: 700; text-transform: uppercase;
+    font-size: clamp(40px, 9vw, 108px); line-height: 0.98; letter-spacing: -0.01em;
+    color: var(--gold); margin: 0; text-align: center;
+  }
+  .hero-title .sticker {
+    display: inline-block; background: var(--pink); color: var(--gold);
+    padding: 2px 16px; transform: rotate(-2deg); border-radius: 8px;
+    font-size: 0.55em; vertical-align: middle; margin: 0 6px;
+  }
+  .hero-meta {
+    display: flex; justify-content: space-between; font-size: 12px;
+    letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.85; margin-top: 22px;
+  }
+
+  .hero-illustration {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 55vh;
+    display: flex; align-items: flex-end; justify-content: center; z-index: 1;
+    pointer-events: none;
+  }
+  .hero-illustration svg { width: 100%; height: 100%; }
+  .beach { opacity: 0; transform: translateY(40px); transition: opacity 0.05s linear, transform 0.05s linear; }
+  .rays-sun { transition: transform 0.05s linear, opacity 0.05s linear; }
+
+  .scroll-hint {
+    position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.6; z-index: 3;
+  }
+
+  /* ---------- Rest of page (constrained width) ---------- */
+  main { max-width: 880px; margin: 0 auto; padding: 60px 20px 60px; }
   .subtitle {
     font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
     opacity: 0.85; margin: 0 0 18px; max-width: 640px;
@@ -128,50 +153,146 @@
 </style>
 </head>
 <body>
-  <div class="topbar">
-    <span>🎙️ Voice RAG · MSMARCO-XI</span>
-    <span><span class="dot">●</span> HH Goa 2026 · Task #2</span>
-  </div>
 
-  <h1>ASK <span class="sticker">पूछो</span> ANYTHING</h1>
-  <p class="subtitle">A voice-in, answer-out Retrieval-Augmented Generation system. <b>Sarvam STT</b> → <b>hybrid retrieval</b> (Chroma + BM25) → <b>guardrails</b> → <b>tiered generation</b> (extractive → synthesis → Claude fallback) → <b>grounding check</b>.</p>
+  <section class="hero">
+    <div class="hero-sticky">
+      <div class="hero-topbar">
+        <span class="hero-credit">🍺 TEAM HANGOVER</span>
+        <div class="hero-actions">
+          <a href="https://github.com/Vedanthdamn/HHGOATASK2">VIEW SOURCE</a>
+          <a href="/app" class="apply">OPEN APP</a>
+        </div>
+      </div>
 
-  <div class="techrow">
-    <span class="techpill">Sarvam STT</span>
-    <span class="techpill">Chroma ANN + BM25 (RRF fusion)</span>
-    <span class="techpill">Extractive → Synthesis → Claude</span>
-    <span class="techpill">5-Layer Guardrails</span>
-    <span class="techpill">Semantic Query Cache</span>
-    <span class="techpill">Target SLA &lt; 200ms</span>
-  </div>
+      <div class="hero-mid">
+        <h1 class="hero-title">ASK <span class="sticker">पूछो</span> ANYTHING</h1>
+        <div class="hero-meta">
+          <span>HH Goa 2026 · Task #2</span>
+          <span>Voice-Enabled RAG</span>
+        </div>
+      </div>
 
-  <div class="statgrid">
-    <div class="stat"><div class="num">21ms</div><div class="label">P50 Retrieval</div></div>
-    <div class="stat"><div class="num">48ms</div><div class="label">P50 Full Pipeline</div></div>
-    <div class="stat"><div class="num">3281</div><div class="label">Indexed Chunks</div></div>
-    <div class="stat"><div class="num">5</div><div class="label">Guardrail Layers</div></div>
-  </div>
+      <div class="hero-illustration">
+        <svg viewBox="0 0 1200 500" preserveAspectRatio="xMidYMax meet">
+          <g class="rays-sun" transform-origin="600px 500px">
+            <g stroke="#fee101" stroke-width="4" stroke-linecap="round" opacity="0.85">
+              <line x1="600" y1="250" x2="600" y2="180"/>
+              <line x1="500" y1="270" x2="450" y2="215" stroke-dasharray="6 8"/>
+              <line x1="700" y1="270" x2="750" y2="215"/>
+              <line x1="420" y1="330" x2="350" y2="300"/>
+              <line x1="780" y1="330" x2="850" y2="300" stroke-dasharray="6 8"/>
+              <line x1="380" y1="410" x2="300" y2="410"/>
+              <line x1="820" y1="410" x2="900" y2="410"/>
+            </g>
+            <circle cx="600" cy="420" r="130" fill="#fee101"/>
+          </g>
+          <g class="beach">
+            <rect x="0" y="420" width="1200" height="80" fill="#0e7a42"/>
+            <path d="M0 440 Q 150 420 300 440 T 600 440 T 900 440 T 1200 440 V500 H0 Z" fill="#f4f8ee"/>
+            <g stroke="#0b6839" stroke-width="3" fill="none" opacity="0.6">
+              <path d="M100 405 q15 -6 30 0"/>
+              <path d="M1080 405 q15 -6 30 0"/>
+              <path d="M250 415 q15 -6 30 0"/>
+              <path d="M950 415 q15 -6 30 0"/>
+            </g>
+            <g transform="translate(90,300)">
+              <line x1="0" y1="0" x2="10" y2="130" stroke="#fee101" stroke-width="8"/>
+              <ellipse cx="-25" cy="-5" rx="35" ry="14" fill="#0e7a42" transform="rotate(-25 -25 -5)"/>
+              <ellipse cx="30" cy="-15" rx="35" ry="14" fill="#0e7a42" transform="rotate(15 30 -15)"/>
+              <ellipse cx="5" cy="-30" rx="35" ry="14" fill="#0e7a42" transform="rotate(-5 5 -30)"/>
+            </g>
+            <g transform="translate(1080,300)">
+              <line x1="0" y1="0" x2="-10" y2="130" stroke="#fee101" stroke-width="8"/>
+              <ellipse cx="25" cy="-5" rx="35" ry="14" fill="#0e7a42" transform="rotate(25 25 -5)"/>
+              <ellipse cx="-30" cy="-15" rx="35" ry="14" fill="#0e7a42" transform="rotate(-15 -30 -15)"/>
+              <ellipse cx="-5" cy="-30" rx="35" ry="14" fill="#0e7a42" transform="rotate(5 -5 -30)"/>
+            </g>
+            <g transform="translate(600,460)" opacity="0.9">
+              <rect x="-14" y="-38" width="28" height="38" rx="2" fill="#fee101"/>
+              <rect x="-14" y="-38" width="28" height="10" rx="2" fill="#ff0080"/>
+            </g>
+          </g>
+        </svg>
+      </div>
 
-  <div class="section-label">Open the build</div>
-
-  <a class="taskcard" href="/app">
-    <div class="icon">🎙️</div>
-    <div>
-      <span class="badge">Task #2</span>
-      <h2>Ask Anything</h2>
-      <p class="desc">Speak a question, get a grounded answer. A full voice-to-answer RAG pipeline — transcription, engineered chunking, vector retrieval, and tiered generation — wired end to end, fast and guardrailed.</p>
-      <ul>
-        <li>Real voice-to-text input, not typed</li>
-        <li>Multi-strategy chunking, not one naive split</li>
-        <li>Full pipeline under 200ms on the confident-match path</li>
-        <li>P50 / P70 / P100 latency benchmarked across real queries</li>
-        <li>Runs inside a real harness — retries, structured I/O, error recovery</li>
-        <li>Guardrails that know when not to answer</li>
-      </ul>
-      <span class="cta">Open Interface →</span>
+      <div class="scroll-hint">↓ Scroll</div>
     </div>
-  </a>
+  </section>
 
-  <footer>© 2026 · Built for HH Goa Task #2 · Voice-Enabled RAG · #RAGInGoa · <a class="footer-link" href="https://github.com/Vedanthdamn/HHGOATASK2">Source</a></footer>
+  <main>
+    <p class="subtitle">A voice-in, answer-out Retrieval-Augmented Generation system. <b>Sarvam STT</b> → <b>hybrid retrieval</b> (Chroma + BM25) → <b>guardrails</b> → <b>tiered generation</b> (extractive → synthesis → Claude fallback) → <b>grounding check</b>.</p>
+
+    <div class="techrow">
+      <span class="techpill">Sarvam STT</span>
+      <span class="techpill">Chroma ANN + BM25 (RRF fusion)</span>
+      <span class="techpill">Extractive → Synthesis → Claude</span>
+      <span class="techpill">5-Layer Guardrails</span>
+      <span class="techpill">Semantic Query Cache</span>
+      <span class="techpill">Target SLA &lt; 200ms</span>
+    </div>
+
+    <div class="statgrid">
+      <div class="stat"><div class="num">21ms</div><div class="label">P50 Retrieval</div></div>
+      <div class="stat"><div class="num">48ms</div><div class="label">P50 Full Pipeline</div></div>
+      <div class="stat"><div class="num">3281</div><div class="label">Indexed Chunks</div></div>
+      <div class="stat"><div class="num">5</div><div class="label">Guardrail Layers</div></div>
+    </div>
+
+    <div class="section-label">Open the build</div>
+
+    <a class="taskcard" href="/app">
+      <div class="icon">🎙️</div>
+      <div>
+        <span class="badge">Task #2</span>
+        <h2>Ask Anything</h2>
+        <p class="desc">Speak a question, get a grounded answer. A full voice-to-answer RAG pipeline — transcription, engineered chunking, vector retrieval, and tiered generation — wired end to end, fast and guardrailed.</p>
+        <ul>
+          <li>Real voice-to-text input, not typed</li>
+          <li>Multi-strategy chunking, not one naive split</li>
+          <li>Full pipeline under 200ms on the confident-match path</li>
+          <li>P50 / P70 / P100 latency benchmarked across real queries</li>
+          <li>Runs inside a real harness — retries, structured I/O, error recovery</li>
+          <li>Guardrails that know when not to answer</li>
+        </ul>
+        <span class="cta">Open Interface →</span>
+      </div>
+    </a>
+
+    <footer>© 2026 · Team Hangover 🍺 · Built for HH Goa Task #2 · Voice-Enabled RAG · #RAGInGoa · <a class="footer-link" href="https://github.com/Vedanthdamn/HHGOATASK2">Source</a></footer>
+  </main>
+
+<script>
+(function () {
+  const hero = document.querySelector('.hero');
+  const beach = document.querySelector('.beach');
+  const raysSun = document.querySelector('.rays-sun');
+  const hint = document.querySelector('.scroll-hint');
+  let ticking = false;
+
+  function update() {
+    ticking = false;
+    const rect = hero.getBoundingClientRect();
+    const total = hero.offsetHeight - window.innerHeight;
+    const scrolled = -rect.top;
+    const p = Math.min(1, Math.max(0, total > 0 ? scrolled / total : 0));
+
+    beach.style.opacity = p;
+    beach.style.transform = `translateY(${(1 - p) * 40}px)`;
+    raysSun.style.transform = `translateY(${-p * 40}px) scale(${1 + p * 0.1})`;
+    raysSun.style.opacity = 1 - p * 0.25;
+    hint.style.opacity = Math.max(0, 0.6 - p * 2);
+  }
+
+  function onScroll() {
+    if (!ticking) {
+      requestAnimationFrame(update);
+      ticking = true;
+    }
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  update();
+})();
+</script>
 </body>
 </html>

@@ -92,14 +92,15 @@ class RagHarness:
         self._cache.append((query_embedding, result))
 
     def run(self, query: str | None = None, audio_bytes: bytes | None = None,
-             language_code: str = "hi-IN", top_k: int = None) -> PipelineResult:
+             language_code: str = "hi-IN", top_k: int = None, audio_filename: str = "audio.wav") -> PipelineResult:
         timings: list[StageTiming] = []
         t_start = time.perf_counter()
 
         # -- Stage 0: STT (only if audio was supplied instead of text) --
         if audio_bytes is not None:
-            transcript_result, err = self._time_stage(timings, "stt", stt.transcribe_audio, audio_bytes, "audio.wav", language_code)
+            transcript_result, err = self._time_stage(timings, "stt", stt.transcribe_audio, audio_bytes, audio_filename, language_code)
             if err is not None:
+                err = err.__cause__ or err
                 return self._finish(PipelineResult(
                     status="error", query="", error=f"STT failed: {err}", refusal_stage="stt",
                 ), timings, t_start)

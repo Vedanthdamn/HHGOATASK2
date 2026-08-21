@@ -1,5 +1,6 @@
 """Speech-to-text via Sarvam AI's /speech-to-text endpoint."""
 import io
+import mimetypes
 
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -18,7 +19,11 @@ def transcribe_audio(audio_bytes: bytes, filename: str = "audio.wav", language_c
     if not config.SARVAM_API_KEY:
         raise STTError("SARVAM_API_KEY is not set")
 
-    files = {"file": (filename, io.BytesIO(audio_bytes), "audio/wav")}
+    if filename.lower().endswith(".webm"):
+        content_type = "audio/webm"
+    else:
+        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    files = {"file": (filename, io.BytesIO(audio_bytes), content_type)}
     data = {"model": "saarika:v2.5", "language_code": language_code}
     headers = {"api-subscription-key": config.SARVAM_API_KEY}
 

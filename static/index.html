@@ -48,6 +48,16 @@
   }
 
   .hero-mid { flex: 1; display: flex; flex-direction: column; justify-content: center; z-index: 3; }
+  .team-title {
+    font-family: "Imbue", serif; font-weight: 700; text-transform: uppercase;
+    font-size: clamp(28px, 6.5vw, 76px); line-height: 1; letter-spacing: -0.01em;
+    color: var(--fg); margin: 0 0 10px; text-align: center; position: relative;
+  }
+  .team-title .beer {
+    display: inline-block; font-size: 0.85em; margin: 0 4px;
+    transform: rotate(-14deg) translateY(-0.12em);
+    filter: drop-shadow(0 6px 8px rgba(0,0,0,0.35));
+  }
   .hero-title {
     font-family: "Imbue", serif; font-weight: 700; text-transform: uppercase;
     font-size: clamp(40px, 9vw, 108px); line-height: 0.98; letter-spacing: -0.01em;
@@ -165,6 +175,7 @@
       </div>
 
       <div class="hero-mid">
+        <h2 class="team-title">TEAM <span class="beer">🍺</span> HANGOVER</h2>
         <h1 class="hero-title">ASK <span class="sticker">पूछो</span> ANYTHING</h1>
         <div class="hero-meta">
           <span>HH Goa 2026 · Task #2</span>

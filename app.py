@@ -3,9 +3,11 @@
 POST /ask        - JSON {"query": "..."} text-only path (useful for testing/benchmarking)
 POST /ask-audio   - multipart audio file -> Sarvam STT -> full pipeline
 GET  /health      - liveness + index size
+GET  /metrics     - P50/P70/P100 latency benchmark results (scripts/benchmark.py output)
 GET  /            - landing/overview page with a Task #2 card -> /app
 GET  /app         - the actual demo UI (mic recording -> pipeline -> answer)
 """
+import json
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, UploadFile
@@ -26,6 +28,9 @@ _harness = RagHarness(store=_store, embedder=_embedder)
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+REPORTS_DIR = Path(__file__).parent / "reports"
+LATENCY_REPORT_PATH = REPORTS_DIR / "latency_results.json"
+
 
 class AskRequest(BaseModel):
     query: str
@@ -44,6 +49,13 @@ def app_ui():
 @app.get("/health")
 def health():
     return {"status": "ok", "indexed_chunks": _store.count()}
+
+
+@app.get("/metrics")
+def metrics():
+    if not LATENCY_REPORT_PATH.exists():
+        return JSONResponse({"error": "No benchmark report found. Run scripts/benchmark.py first."}, status_code=404)
+    return JSONResponse(json.loads(LATENCY_REPORT_PATH.read_text()))
 
 
 @app.post("/ask")

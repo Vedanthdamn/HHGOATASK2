@@ -4,6 +4,5 @@ __pycache__/
 .env
 data/*
 !data/chroma/
-reports/*.json
 *.egg-info/
 .DS_Store

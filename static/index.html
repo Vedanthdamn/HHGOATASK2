@@ -98,6 +98,28 @@
     margin-bottom: 14px;
   }
 
+  .metrics-panel {
+    border: 1px solid var(--panel-border); background: var(--panel);
+    padding: 22px; margin-bottom: 44px; overflow-x: auto;
+  }
+  .metrics-caption { font-size: 11px; opacity: 0.75; margin-bottom: 16px; }
+  .metrics-caption b { color: var(--gold); }
+  table.metrics-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 520px; }
+  table.metrics-table th, table.metrics-table td { text-align: right; padding: 8px 10px; }
+  table.metrics-table th:first-child, table.metrics-table td:first-child { text-align: left; }
+  table.metrics-table thead th {
+    text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; opacity: 0.7;
+    border-bottom: 1px dashed var(--panel-border);
+  }
+  table.metrics-table tbody td { border-bottom: 1px dashed rgba(255,255,255,0.08); }
+  table.metrics-table tbody tr:last-child td { border-bottom: none; }
+  table.metrics-table td.metric-name { color: var(--fg); opacity: 0.9; }
+  table.metrics-table td.metric-p50, table.metrics-table td.metric-p70 { color: var(--gold); font-weight: 600; }
+  table.metrics-table td.pass { color: var(--gold); }
+  table.metrics-table td.fail { color: var(--pink); }
+  .metrics-footnote { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; font-size: 11px; opacity: 0.8; }
+  .metrics-footnote span b { color: var(--gold); }
+
   .taskcard {
     border: 1px solid var(--panel-border);
     background: var(--panel);
@@ -270,11 +292,25 @@
       <span class="techpill">Target SLA &lt; 200ms</span>
     </div>
 
-    <div class="statgrid">
-      <div class="stat"><div class="num">21ms</div><div class="label">P50 Retrieval</div></div>
-      <div class="stat"><div class="num">48ms</div><div class="label">P50 Full Pipeline</div></div>
-      <div class="stat"><div class="num">3281</div><div class="label">Indexed Chunks</div></div>
+    <div class="statgrid" id="statGrid">
+      <div class="stat"><div class="num" id="statP50Retrieval">21ms</div><div class="label">P50 Retrieval</div></div>
+      <div class="stat"><div class="num" id="statP50Pipeline">48ms</div><div class="label">P50 Full Pipeline</div></div>
+      <div class="stat"><div class="num" id="statChunks">3281</div><div class="label">Indexed Chunks</div></div>
       <div class="stat"><div class="num">5</div><div class="label">Guardrail Layers</div></div>
+    </div>
+
+    <div class="section-label">Latency Analytics</div>
+    <div class="metrics-panel">
+      <div class="metrics-caption" id="metricsCaption">Loading benchmark results…</div>
+      <div style="overflow-x:auto;">
+        <table class="metrics-table" id="metricsTable">
+          <thead>
+            <tr><th>Stage</th><th>N</th><th>P50</th><th>P70</th><th>P100</th><th>Mean</th><th>Min</th></tr>
+          </thead>
+          <tbody id="metricsBody"></tbody>
+        </table>
+      </div>
+      <div class="metrics-footnote" id="metricsFootnote"></div>
     </div>
 
     <div class="section-label">Open the build</div>
@@ -299,5 +335,65 @@
 
     <footer>© 2026 · Team Hangover 🍺 · Built for HH Goa Task #2 · Voice-Enabled RAG · #RAGInGoa · <a class="footer-link" href="https://github.com/Vedanthdamn/HHGOATASK2">Source</a></footer>
   </main>
+
+<script>
+const rowLabels = {
+  retrieval_only: 'Retrieval Only',
+  end_to_end_mixed: 'Full Pipeline (Mixed)',
+  end_to_end_extractive_only: 'Full Pipeline (Extractive-Only)',
+  end_to_end_llm_only: 'Full Pipeline (LLM-Fallback Only)',
+};
+const rowOrder = ['retrieval_only', 'end_to_end_mixed', 'end_to_end_extractive_only', 'end_to_end_llm_only'];
+const modeLabels = { extractive: 'Extractive', extractive_synthesis: 'Synthesis', llm: 'Claude' };
+
+fetch('/metrics')
+  .then(r => r.ok ? r.json() : Promise.reject(new Error('no report')))
+  .then(data => {
+    document.getElementById('metricsCaption').innerHTML =
+      `Target: <b>&lt;${data.target_ms}ms</b> · Retrieval leg meets target: <b>${data.retrieval_meets_target ? 'YES' : 'NO'}</b>` +
+      (data.extractive_fast_path_meets_target !== undefined ? ` · Extractive fast path meets target: <b>${data.extractive_fast_path_meets_target ? 'YES' : 'NO'}</b>` : '');
+
+    const tbody = document.getElementById('metricsBody');
+    tbody.innerHTML = '';
+    for (const key of rowOrder) {
+      const row = data[key];
+      if (!row) continue;
+      const p50Pass = row.p50_ms < data.target_ms;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="metric-name">${rowLabels[key] || key}</td>
+        <td>${row.n}</td>
+        <td class="metric-p50 ${p50Pass ? 'pass' : 'fail'}">${row.p50_ms.toFixed(1)}ms</td>
+        <td class="metric-p70">${row.p70_ms.toFixed(1)}ms</td>
+        <td>${row.p100_ms.toFixed(1)}ms</td>
+        <td>${row.mean_ms.toFixed(1)}ms</td>
+        <td>${row.min_ms.toFixed(1)}ms</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    const footParts = [];
+    if (data.status_breakdown) {
+      const s = Object.entries(data.status_breakdown).map(([k, v]) => `${v} ${k}`).join(', ');
+      footParts.push(`<span><b>Status:</b> ${s}</span>`);
+    }
+    if (data.generation_mode_breakdown) {
+      const m = Object.entries(data.generation_mode_breakdown).map(([k, v]) => `${v} ${modeLabels[k] || k}`).join(', ');
+      footParts.push(`<span><b>Generation tiers used:</b> ${m}</span>`);
+    }
+    document.getElementById('metricsFootnote').innerHTML = footParts.join('');
+
+    if (data.retrieval_only) document.getElementById('statP50Retrieval').textContent = data.retrieval_only.p50_ms.toFixed(1) + 'ms';
+    if (data.end_to_end_mixed) document.getElementById('statP50Pipeline').textContent = data.end_to_end_mixed.p50_ms.toFixed(1) + 'ms';
+  })
+  .catch(() => {
+    document.getElementById('metricsCaption').textContent = 'Benchmark report unavailable — run scripts/benchmark.py to generate one.';
+  });
+
+fetch('/health')
+  .then(r => r.json())
+  .then(d => { if (d.indexed_chunks) document.getElementById('statChunks').textContent = d.indexed_chunks; })
+  .catch(() => {});
+</script>
 </body>
 </html>

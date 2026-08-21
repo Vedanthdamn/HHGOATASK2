@@ -3,7 +3,6 @@ __pycache__/
 *.pyc
 .env
 .git/
-reports/*.json
 *.egg-info/
 .DS_Store
 scripts/

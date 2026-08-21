@@ -67,7 +67,7 @@ def ask(req: AskRequest):
 @app.post("/ask-audio")
 async def ask_audio(file: UploadFile = File(...), language_code: str = Form("hi-IN")):
     audio_bytes = await file.read()
-    result = _harness.run(audio_bytes=audio_bytes, language_code=language_code)
+    result = _harness.run(audio_bytes=audio_bytes, language_code=language_code, audio_filename=file.filename or "audio.wav")
     return JSONResponse(result.to_dict())
 
 

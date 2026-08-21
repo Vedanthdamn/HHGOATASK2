@@ -173,44 +173,98 @@
       </div>
 
       <div class="hero-illustration">
-        <svg viewBox="0 0 1200 500" preserveAspectRatio="xMidYMax meet">
-          <g class="rays-sun" transform-origin="600px 500px">
+        <svg viewBox="0 0 1200 520" preserveAspectRatio="xMidYMax meet">
+          <defs>
+            <g id="palm">
+              <path d="M0 0 C -6 40 4 90 -4 150" stroke="#fee101" stroke-width="9" fill="none" stroke-linecap="round"/>
+              <g fill="#0e7a42" stroke="#084d2a" stroke-width="2">
+                <path d="M0 0 C -20 -8 -55 -4 -75 12 C -45 8 -20 10 0 8 Z"/>
+                <path d="M0 0 C 10 -22 40 -35 68 -30 C 40 -14 18 -4 0 8 Z"/>
+                <path d="M0 0 C -6 -26 -28 -46 -55 -50 C -34 -28 -16 -12 0 8 Z"/>
+                <path d="M0 0 C 12 -10 42 -12 62 2 C 38 2 18 6 0 8 Z"/>
+                <path d="M0 0 C -14 -14 -18 -38 -8 -60 C 2 -40 4 -18 0 8 Z"/>
+              </g>
+            </g>
+            <g id="lounger">
+              <path d="M0 20 L 50 20 L 42 0 L 8 0 Z" fill="none" stroke="#0e7a42" stroke-width="3"/>
+              <line x1="4" y1="20" x2="4" y2="28" stroke="#0e7a42" stroke-width="3"/>
+              <line x1="46" y1="20" x2="46" y2="28" stroke="#0e7a42" stroke-width="3"/>
+            </g>
+            <g id="umbrella">
+              <path d="M-30 0 A 30 20 0 0 1 30 0 Z" fill="#fee101" stroke="#084d2a" stroke-width="2"/>
+              <path d="M-30 0 A 30 20 0 0 1 30 0" fill="none" stroke="#084d2a" stroke-width="2"/>
+              <line x1="-15" y1="0" x2="-15" y2="0" stroke="#084d2a"/>
+              <line x1="0" y1="-4" x2="0" y2="55" stroke="#0e7a42" stroke-width="4"/>
+            </g>
+            <g id="walker">
+              <circle cx="0" cy="-30" r="6" fill="#e9f2e2"/>
+              <path d="M0 -24 L0 -6 M0 -18 L-10 -10 M0 -18 L10 -12 M0 -6 L-8 10 M0 -6 L8 10" stroke="#e9f2e2" stroke-width="3" stroke-linecap="round" fill="none"/>
+            </g>
+          </defs>
+
+          <g class="rays-sun" transform-origin="600px 520px">
             <g stroke="#fee101" stroke-width="4" stroke-linecap="round" opacity="0.85">
-              <line x1="600" y1="250" x2="600" y2="180"/>
-              <line x1="500" y1="270" x2="450" y2="215" stroke-dasharray="6 8"/>
-              <line x1="700" y1="270" x2="750" y2="215"/>
-              <line x1="420" y1="330" x2="350" y2="300"/>
-              <line x1="780" y1="330" x2="850" y2="300" stroke-dasharray="6 8"/>
-              <line x1="380" y1="410" x2="300" y2="410"/>
-              <line x1="820" y1="410" x2="900" y2="410"/>
+              <line x1="600" y1="255" x2="600" y2="185"/>
+              <line x1="500" y1="275" x2="450" y2="220" stroke-dasharray="6 8"/>
+              <line x1="700" y1="275" x2="750" y2="220"/>
+              <line x1="420" y1="335" x2="350" y2="305"/>
+              <line x1="780" y1="335" x2="850" y2="305" stroke-dasharray="6 8"/>
+              <line x1="380" y1="415" x2="300" y2="415"/>
+              <line x1="820" y1="415" x2="900" y2="415"/>
             </g>
-            <circle cx="600" cy="420" r="130" fill="#fee101"/>
+            <circle cx="600" cy="430" r="135" fill="#fee101"/>
           </g>
+
           <g class="beach">
-            <rect x="0" y="420" width="1200" height="80" fill="#0e7a42"/>
-            <path d="M0 440 Q 150 420 300 440 T 600 440 T 900 440 T 1200 440 V500 H0 Z" fill="#f4f8ee"/>
-            <g stroke="#0b6839" stroke-width="3" fill="none" opacity="0.6">
-              <path d="M100 405 q15 -6 30 0"/>
-              <path d="M1080 405 q15 -6 30 0"/>
-              <path d="M250 415 q15 -6 30 0"/>
-              <path d="M950 415 q15 -6 30 0"/>
+            <!-- hills -->
+            <path d="M0 400 Q 120 370 260 395 L 260 430 L 0 430 Z" fill="#0e7a42" opacity="0.55"/>
+            <path d="M960 400 Q 1080 375 1200 398 L 1200 430 L 960 430 Z" fill="#0e7a42" opacity="0.55"/>
+
+            <!-- water -->
+            <rect x="0" y="430" width="1200" height="55" fill="#0a5c31"/>
+            <g stroke="#e9f2e2" stroke-width="2.5" fill="none" opacity="0.55">
+              <path d="M60 448 q16 -7 32 0 t32 0"/>
+              <path d="M900 458 q16 -7 32 0 t32 0"/>
+              <path d="M1040 445 q16 -7 32 0 t32 0"/>
             </g>
-            <g transform="translate(90,300)">
-              <line x1="0" y1="0" x2="10" y2="130" stroke="#fee101" stroke-width="8"/>
-              <ellipse cx="-25" cy="-5" rx="35" ry="14" fill="#0e7a42" transform="rotate(-25 -25 -5)"/>
-              <ellipse cx="30" cy="-15" rx="35" ry="14" fill="#0e7a42" transform="rotate(15 30 -15)"/>
-              <ellipse cx="5" cy="-30" rx="35" ry="14" fill="#0e7a42" transform="rotate(-5 5 -30)"/>
+            <g transform="translate(180,452)" opacity="0.9">
+              <path d="M-22 0 L22 0 L15 9 L-15 9 Z" fill="#e9f2e2"/>
+              <rect x="-4" y="-10" width="8" height="10" fill="#e9f2e2"/>
             </g>
-            <g transform="translate(1080,300)">
-              <line x1="0" y1="0" x2="-10" y2="130" stroke="#fee101" stroke-width="8"/>
-              <ellipse cx="25" cy="-5" rx="35" ry="14" fill="#0e7a42" transform="rotate(25 25 -5)"/>
-              <ellipse cx="-30" cy="-15" rx="35" ry="14" fill="#0e7a42" transform="rotate(-15 -30 -15)"/>
-              <ellipse cx="-5" cy="-30" rx="35" ry="14" fill="#0e7a42" transform="rotate(5 -5 -30)"/>
+
+            <!-- sand -->
+            <path d="M0 460 Q 150 435 300 458 T 600 458 T 900 458 T 1200 460 V520 H0 Z" fill="#f4f8ee"/>
+
+            <!-- palms framing the scene -->
+            <use href="#palm" x="70" y="280" transform="scale(1.35)" transform-origin="70px 280px"/>
+            <use href="#palm" x="1130" y="280" transform="scale(-1.35,1.35)" transform-origin="1130px 280px"/>
+            <use href="#palm" x="230" y="330" transform="scale(0.85)" transform-origin="230px 330px"/>
+            <use href="#palm" x="970" y="330" transform="scale(-0.85,0.85)" transform-origin="970px 330px"/>
+
+            <!-- loungers + umbrellas -->
+            <use href="#umbrella" x="330" y="410"/>
+            <use href="#lounger" x="310" y="430"/>
+            <use href="#umbrella" x="440" y="415"/>
+            <use href="#lounger" x="420" y="435"/>
+
+            <!-- beach shack -->
+            <g transform="translate(760,395)">
+              <polygon points="-70,20 0,-25 70,20" fill="#0e7a42" stroke="#084d2a" stroke-width="2"/>
+              <rect x="-58" y="20" width="116" height="55" fill="#f4f8ee" stroke="#084d2a" stroke-width="2"/>
+              <rect x="-16" y="40" width="32" height="35" fill="#0e7a42"/>
+              <rect x="-48" y="-4" width="70" height="16" rx="3" fill="#ff0080"/>
+              <text x="-13" y="8" font-family="Victor Mono, monospace" font-size="10" font-weight="700" fill="#fee101">HANGOVER</text>
+              <line x1="-70" y1="20" x2="70" y2="20" stroke="#084d2a" stroke-width="2"/>
             </g>
-            <g transform="translate(600,460)" opacity="0.9">
-              <rect x="-14" y="-38" width="28" height="38" rx="2" fill="#fee101"/>
-              <rect x="-14" y="-38" width="28" height="10" rx="2" fill="#ff0080"/>
+            <g transform="translate(700,468) rotate(-8)" opacity="0.9">
+              <rect x="-6" y="-40" width="12" height="40" rx="4" fill="#fee101"/>
             </g>
+            <g transform="translate(716,470) rotate(6)" opacity="0.9">
+              <rect x="-6" y="-40" width="12" height="40" rx="4" fill="#ff0080"/>
+            </g>
+
+            <use href="#walker" x="130" y="470"/>
+            <use href="#walker" x="1060" y="465" transform="scale(-1,1)" transform-origin="1060px 465px"/>
           </g>
         </svg>
       </div>

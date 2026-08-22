@@ -112,7 +112,7 @@ Run the benchmark yourself:
 python scripts/benchmark.py --n 50
 ```
 
-Results are written to `reports/latency_results.json`. Measured over 50 real MSMARCO-XI queries against a 3,281-chunk index, **inside the same container image that is deployed** (single-threaded BLAS, 2 vCPU) rather than on a developer laptop — so these are production numbers, not best-case local ones:
+Results are written to `reports/latency_results.json`. Measured over 50 real MSMARCO-XI queries against a 3,281-chunk index, run **inside the deployed container image** (single-threaded BLAS, `OMP_NUM_THREADS=1`) rather than against a bare local interpreter — so the thread/BLAS configuration matches production rather than flattering it:
 
 | Leg | P50 | P70 | **P100** | Mean |
 |---|---|---|---|---|
@@ -121,7 +121,20 @@ Results are written to `reports/latency_results.json`. Measured over 50 real MSM
 | Full pipeline, single-chunk extractive tier only | 42.0ms | 47.5ms | 53.3ms | 43.7ms |
 | Full pipeline, multi-chunk synthesis tier only | 41.6ms | 43.8ms | 62.8ms | 43.3ms |
 
-**Every percentile — including P100 — is inside the 200ms budget**, with ~3x headroom at the worst case. All 50 queries resolved through the non-LLM tiers (9 via single-chunk extraction, 41 via multi-chunk synthesis, 0 via Claude); 46 answered, 4 correctly refused by the retrieval-confidence guardrail. Claude remains wired in as tier 3 and is exercised by our guardrail tests, it just wasn't needed by this benchmark set.
+**Every percentile — including P100 — is inside the 200ms budget**, with ~3x headroom at the worst case. All 50 queries resolved through the non-LLM tiers (9 via single-chunk extraction, 41 via multi-chunk synthesis, 0 via Claude); 46 answered, 4 correctly refused by the guardrails. Claude remains wired in as tier 3 and is exercised by our guardrail tests, it just wasn't needed by this benchmark set.
+
+Measured against the **live deployment** (EC2 `c7i-flex.large`), end to end from synthesized Hindi speech through Sarvam STT to a grounded answer:
+
+| Stage | Live |
+|---|---|
+| Sarvam STT (network call, excluded from the target — see above) | 268.3ms |
+| Query embedding | 34.3ms |
+| Hybrid retrieval (Chroma ANN + BM25 + RRF) | 90.4ms |
+| Tier 2 synthesis | 2.3ms |
+| All five guardrails combined | 0.3ms |
+| **Post-STT pipeline total** | **127.5ms** |
+
+The same request measured **891ms post-STT before this fix**, on the same instance, returning the identical answer — the entire difference is the synthesis tier going from 769.2ms to 2.3ms.
 
 ### How the P100 was fixed (it used to be 307ms)
 

@@ -133,16 +133,17 @@ Measured against the **live deployment** (EC2 `c7i-flex.large`, 2 vCPU), over 40
 
 with the median request spending 15.3ms of that in the encoder, 1.0ms in retrieval, 0.28ms in synthesis and 0.3ms across all five guardrails.
 
-For the same request measured end to end from voice, at three points in this work — identical answer every time:
+For the voice path end to end, before and after this work, with the semantic cache confirmed **off** for both (`cache_hit: false`, real synthesized speech, real Sarvam STT call, a fresh never-seen query so nothing is served from cache):
 
-| | Before | After retrieval + encoder work |
+| | Before | After |
 |---|---|---|
-| Query embedding | 34.3ms | 11.5ms |
+| Query embedding | 34.3ms | 21.9ms |
 | Hybrid retrieval | 90.4ms | 1.0ms |
-| Tier 2 synthesis | 769.2ms → 2.3ms | 0.3ms |
-| **Post-STT total** | **891ms** | **~13ms** |
+| Tier 2 synthesis | 769.2ms | 0.3ms |
+| All 5 guardrails | — | 0.3ms |
+| **Post-STT total** | **891ms** | **23.7ms** |
 
-(Sarvam STT itself is a network call of 270–600ms depending on the request and is excluded from the target, as noted above.)
+(Sarvam STT itself is a network call — 270–600ms depending on the request — and is excluded from the target, as noted above. A *repeated* query is faster still: the semantic cache returns in ~11ms post-STT, skipping retrieval and generation entirely.)
 
 ### How the P100 was fixed (it used to be 307ms)
 

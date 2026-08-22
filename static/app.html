@@ -276,6 +276,7 @@ recordBtn.onclick = async () => {
     try {
       const resp = await fetch('/ask-audio', { method: 'POST', body: form });
       const data = await resp.json();
+      if (data.query) textQuery.value = data.query;
       renderResult(data);
     } catch (e) {
       resultDiv.innerHTML = `<div class="card status-error"><span class="badge">Error</span><p>Request failed: ${e}</p></div>`;

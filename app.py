@@ -2,6 +2,8 @@
 
 POST /ask        - JSON {"query": "..."} text-only path (useful for testing/benchmarking)
 POST /ask-audio   - multipart audio file -> Sarvam STT -> full pipeline
+POST /translate   - JSON {"text": "...", "target_language_code": "en-IN"} -> translated answer
+                    (display-side only: the pipeline itself always runs in Hindi)
 GET  /health      - liveness + index size
 GET  /metrics     - P50/P70/P100 latency benchmark results (scripts/benchmark.py output)
 GET  /            - landing/overview page with a Task #2 card -> /app
@@ -11,13 +13,14 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src.embeddings import Embedder
 from src.harness import RagHarness
+from src.translate import SUPPORTED_LANGUAGES, TranslateError, translate_text
 from src.vectorstore import VectorStore
 
 app = FastAPI(title="HH Goa Voice RAG")
@@ -35,6 +38,11 @@ LATENCY_REPORT_PATH = REPORTS_DIR / "latency_results.json"
 
 class AskRequest(BaseModel):
     query: str
+
+
+class TranslateRequest(BaseModel):
+    text: str
+    target_language_code: str
 
 
 @app.get("/")
@@ -81,6 +89,17 @@ async def ask_audio(file: UploadFile = File(...), language_code: str = Form("hi-
     audio_bytes = await file.read()
     result = _harness.run(audio_bytes=audio_bytes, language_code=language_code, audio_filename=file.filename or "audio.wav")
     return JSONResponse(result.to_dict())
+
+
+@app.post("/translate")
+def translate(req: TranslateRequest):
+    if req.target_language_code not in SUPPORTED_LANGUAGES:
+        raise HTTPException(status_code=400, detail=f"Unsupported target_language_code. Choose from: {list(SUPPORTED_LANGUAGES)}")
+    try:
+        result = translate_text(req.text, req.target_language_code)
+    except TranslateError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    return JSONResponse(result)
 
 
 if __name__ == "__main__":

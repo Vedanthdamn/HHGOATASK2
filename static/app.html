@@ -131,7 +131,15 @@
   .status-error .badge { color: #ff5b5b; }
 
   .query-line { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; margin-bottom: 4px; }
+  .answer-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  .lang-select {
+    font-family: "Victor Mono", monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    background: var(--bg-deep); color: var(--gold); border: 1px dashed var(--panel-border);
+    padding: 4px 8px; cursor: pointer;
+  }
+  .lang-select:disabled { opacity: 0.5; cursor: wait; }
   .answer-text { font-size: 16px; line-height: 1.6; margin: 6px 0 16px; }
+  .translate-note { font-size: 10px; opacity: 0.6; margin: -10px 0 16px; }
   .mode-tag { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gold); opacity: 0.85; }
   .cache-tag { color: var(--pink); }
   .scores { font-size: 12px; opacity: 0.85; margin-top: 10px; }
@@ -332,15 +340,28 @@ const guardrailStages = [
   { key: 'guardrail_coherence', label: 'Output Coherence', refusalKey: 'coherence' },
 ];
 
+// Mirrors src/translate.py SUPPORTED_LANGUAGES -- keep in sync if that list changes.
+const LANGS = { 'hi-IN': 'Hindi (original)', 'en-IN': 'English', 'te-IN': 'Telugu', 'ta-IN': 'Tamil' };
+
 function renderResult(data) {
+  // Always translate from the model's original Hindi answer, never from a
+  // previous translation -- chaining translations compounds drift/errors.
+  const originalAnswer = data.answer || '';
+  const translationCache = { 'hi-IN': originalAnswer };
+
   let html = `<div class="card status-${data.status}">`;
   html += `<span class="badge">${statusBadge[data.status] || data.status}</span>`;
   html += `<div class="query-line">Query</div>`;
   html += `<div class="answer-text" style="opacity:0.9; font-size:14px;">${escapeHtml(data.query || '')}</div>`;
 
   if (data.status === 'answered') {
-    html += `<div class="query-line">Answer <span class="mode-tag">(${modeLabels[data.generation_mode] || data.generation_mode})${data.cache_hit ? ' <span class="cache-tag">[cache hit]</span>' : ''}</span></div>`;
-    html += `<div class="answer-text">${escapeHtml(data.answer)}</div>`;
+    html += `<div class="answer-row">
+      <div class="query-line">Answer <span class="mode-tag">(${modeLabels[data.generation_mode] || data.generation_mode})${data.cache_hit ? ' <span class="cache-tag">[cache hit]</span>' : ''}</span></div>
+      <select class="lang-select" id="langSelect">${Object.entries(LANGS).map(([code, label]) =>
+        `<option value="${code}"${code === 'hi-IN' ? ' selected' : ''}>${label}</option>`).join('')}</select>
+    </div>`;
+    html += `<div class="answer-text" id="answerText">${escapeHtml(data.answer)}</div>`;
+    html += `<div class="translate-note" id="translateNote">Pipeline answers in Hindi (the corpus language) — the dropdown translates for display only, via Sarvam, and doesn't re-run retrieval/generation.</div>`;
     html += `<div class="scores">Grounding score: ${data.grounding_score?.toFixed(2)} · Retrieval score: ${data.retrieval_score?.toFixed(2)}</div>`;
   } else if (data.status === 'refused') {
     html += `<div class="query-line">Declined at stage: ${data.refusal_stage}</div>`;
@@ -366,6 +387,37 @@ function renderResult(data) {
   html += '</div>';
 
   resultDiv.innerHTML = html;
+
+  if (data.status === 'answered') {
+    const select = document.getElementById('langSelect');
+    const answerEl = document.getElementById('answerText');
+    select.onchange = async () => {
+      const target = select.value;
+      if (translationCache[target] !== undefined) {
+        answerEl.textContent = translationCache[target];
+        return;
+      }
+      select.disabled = true;
+      const prevText = answerEl.textContent;
+      answerEl.textContent = 'Translating...';
+      try {
+        const resp = await fetch('/translate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: originalAnswer, target_language_code: target }),
+        });
+        if (!resp.ok) throw new Error((await resp.json()).detail || `HTTP ${resp.status}`);
+        const t = await resp.json();
+        translationCache[target] = t.translated_text;
+        answerEl.textContent = t.translated_text;
+      } catch (e) {
+        answerEl.textContent = prevText;
+        select.value = Object.keys(translationCache).find(k => translationCache[k] === prevText) || 'hi-IN';
+        alert(`Translation failed: ${e.message || e}`);
+      } finally {
+        select.disabled = false;
+      }
+    };
+  }
 }
 
 function renderTelemetry(data) {

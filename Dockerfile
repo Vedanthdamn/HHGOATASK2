@@ -34,14 +34,16 @@ ENV GIT_SHA=$GIT_SHA
 
 ENV CHROMA_PERSIST_DIR=/app/data/chroma
 ENV PORT=7860
-# Thread pools are capped rather than left to spawn one thread per core, which
-# allocates per-thread buffers for little gain at our request volume. The cap
-# is 2 because that is the vCPU count of the instance this runs on: measured
-# on the ONNX encoder, 2 threads is ~26% faster than 1 (7.96ms -> 5.91ms),
-# while oversubscribing past the core count costs more in contention than it
-# returns. (Previously 1, sized for a 512MB Render tier we no longer use.)
-ENV OMP_NUM_THREADS=2
-ENV MKL_NUM_THREADS=2
+# Single-threaded on purpose, and measured rather than assumed. Raising this
+# to 2 (the instance's vCPU count) looked obviously right -- it was ~26%
+# faster on the ONNX encoder in isolation -- but measured against the live
+# deployment over 40 queries it was *slower*: P50 17.2ms -> 19.7ms, with
+# retrieval alone going 1.0ms -> 3.7ms. Our hot-path arrays are small (a
+# 3281x384 matmul, a few thousand-element sorts), and splitting those across
+# threads costs more in synchronization than it saves; the encoder showed no
+# real gain either (15.5ms -> 15.3ms). So: one thread.
+ENV OMP_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
 ENV TOKENIZERS_PARALLELISM=false
 EXPOSE 7860
 

@@ -125,18 +125,24 @@ Results are written to `reports/latency_results.json`, over 50 real MSMARCO-XI q
 
 Everything around the model is now effectively free: of the 10.1ms median, retrieval after embedding is ~0.5ms and all five guardrails together are ~0.3ms. **What remains is the transformer forward pass**, and the P100 is simply the longest query in the set — latency correlates with query token count at **r = 0.957** (37 tokens at P100 vs 7–9 tokens at the fastest), and a second fully-warm pass reproduces the same P100, so it is sequence length rather than warmup. Cutting it further means a smaller encoder or a quantized one, which trades retrieval quality for milliseconds we don't need — the budget is 200ms.
 
-Measured against the **live deployment** (EC2 `c7i-flex.large`), end to end from synthesized Hindi speech through Sarvam STT to a grounded answer:
+Measured against the **live deployment** (EC2 `c7i-flex.large`, 2 vCPU), over 40 distinct queries hitting the public endpoint — slower per-core than the benchmark host, so this is the pessimistic number:
 
-| Stage | Live |
-|---|---|
-| Sarvam STT (network call, excluded from the target — see above) | 268.3ms |
-| Query embedding | 34.3ms |
-| Hybrid retrieval (Chroma ANN + BM25 + RRF) | 90.4ms |
-| Tier 2 synthesis | 2.3ms |
-| All five guardrails combined | 0.3ms |
-| **Post-STT pipeline total** | **127.5ms** |
+| Live pipeline (server-side) | P50 | P70 | P100 |
+|---|---|---|---|
+| Full pipeline | **17.0ms** | **17.7ms** | **37.6ms** |
 
-The same request measured **891ms post-STT before this fix**, on the same instance, returning the identical answer — the entire difference is the synthesis tier going from 769.2ms to 2.3ms.
+with the median request spending 15.3ms of that in the encoder, 1.0ms in retrieval, 0.28ms in synthesis and 0.3ms across all five guardrails.
+
+For the same request measured end to end from voice, at three points in this work — identical answer every time:
+
+| | Before | After retrieval + encoder work |
+|---|---|---|
+| Query embedding | 34.3ms | 11.5ms |
+| Hybrid retrieval | 90.4ms | 1.0ms |
+| Tier 2 synthesis | 769.2ms → 2.3ms | 0.3ms |
+| **Post-STT total** | **891ms** | **~13ms** |
+
+(Sarvam STT itself is a network call of 270–600ms depending on the request and is excluded from the target, as noted above.)
 
 ### How the P100 was fixed (it used to be 307ms)
 

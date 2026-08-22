@@ -52,13 +52,30 @@ jobs:
             --parameters "{\"commands\":[\"docker pull $IMAGE\",\"docker stop hhgoa-rag || true\",\"docker rm hhgoa-rag || true\",\"docker run -d --restart unless-stopped --name hhgoa-rag -p 127.0.0.1:8080:7860 -e SARVAM_API_KEY='$SARVAM_API_KEY' -e ANTHROPIC_API_KEY='$ANTHROPIC_API_KEY' $IMAGE\"]}" \
             --query 'Command.CommandId' --output text)
           echo "Waiting for deployment command $COMMAND_ID..."
-          sleep 15
+          for i in $(seq 1 20); do
+            STATUS=$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query 'Status' --output text)
+            echo "SSM status: $STATUS"
+            if [ "$STATUS" = "Success" ] || [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+              break
+            fi
+            sleep 6
+          done
           aws ssm get-command-invocation \
             --command-id "$COMMAND_ID" \
             --instance-id "$INSTANCE_ID" \
             --query '[Status,StandardOutputContent,StandardErrorContent]' --output text
+          [ "$STATUS" = "Success" ]
 
       - name: Verify health
         run: |
-          sleep 10
-          curl -sf https://3.111.3.245.nip.io/health
+          for i in $(seq 1 20); do
+            if curl -sf -m 10 https://3.111.3.245.nip.io/health; then
+              echo
+              echo "Healthy."
+              exit 0
+            fi
+            echo "Not ready yet, retrying..."
+            sleep 6
+          done
+          echo "Service did not become healthy in time"
+          exit 1

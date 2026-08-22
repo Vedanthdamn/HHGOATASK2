@@ -35,7 +35,8 @@ jobs:
         env:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
         run: |
-          docker build -t "$REGISTRY/$ECR_REPOSITORY:latest" -t "$REGISTRY/$ECR_REPOSITORY:${{ github.sha }}" .
+          docker build --build-arg GIT_SHA=${{ github.sha }} \
+            -t "$REGISTRY/$ECR_REPOSITORY:latest" -t "$REGISTRY/$ECR_REPOSITORY:${{ github.sha }}" .
           docker push "$REGISTRY/$ECR_REPOSITORY:latest"
           docker push "$REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"
 
@@ -49,7 +50,7 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters "{\"commands\":[\"docker pull $IMAGE\",\"docker stop hhgoa-rag || true\",\"docker rm hhgoa-rag || true\",\"docker run -d --restart unless-stopped --name hhgoa-rag -p 127.0.0.1:8080:7860 -e SARVAM_API_KEY='$SARVAM_API_KEY' -e ANTHROPIC_API_KEY='$ANTHROPIC_API_KEY' $IMAGE\"]}" \
+            --parameters "{\"commands\":[\"set -e\",\"docker image prune -af || true\",\"docker pull $IMAGE\",\"docker stop hhgoa-rag || true\",\"docker rm hhgoa-rag || true\",\"docker run -d --restart unless-stopped --name hhgoa-rag -p 127.0.0.1:8080:7860 -e SARVAM_API_KEY='$SARVAM_API_KEY' -e ANTHROPIC_API_KEY='$ANTHROPIC_API_KEY' $IMAGE\"]}" \
             --query 'Command.CommandId' --output text)
           echo "Waiting for deployment command $COMMAND_ID..."
           for i in $(seq 1 20); do
@@ -66,16 +67,22 @@ jobs:
             --query '[Status,StandardOutputContent,StandardErrorContent]' --output text
           [ "$STATUS" = "Success" ]
 
-      - name: Verify health
+      # Health alone is not enough: a failed `docker pull` once left the old
+      # container running and healthy, so the deploy reported success while
+      # shipping nothing. Assert the live build actually matches this commit.
+      - name: Verify deployed version
         run: |
-          for i in $(seq 1 20); do
-            if curl -sf -m 10 https://3.111.3.245.nip.io/health; then
-              echo
-              echo "Healthy."
+          for i in $(seq 1 30); do
+            BODY=$(curl -sf -m 10 https://3.111.3.245.nip.io/health || true)
+            LIVE=$(echo "$BODY" | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',''))" 2>/dev/null || true)
+            if [ "$LIVE" = "${{ github.sha }}" ]; then
+              echo "$BODY"
+              echo "Live version matches ${{ github.sha }}."
               exit 0
             fi
-            echo "Not ready yet, retrying..."
+            echo "waiting... live version='$LIVE'"
             sleep 6
           done
-          echo "Service did not become healthy in time"
+          echo "Deployed version never matched ${{ github.sha }} -- the running container is stale."
+          echo "last /health: $BODY"
           exit 1

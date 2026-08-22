@@ -8,6 +8,7 @@ GET  /            - landing/overview page with a Task #2 card -> /app
 GET  /app         - the actual demo UI (mic recording -> pipeline -> answer)
 """
 import json
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, UploadFile
@@ -54,6 +55,7 @@ def health():
     # like a healthy deploy.
     return {
         "status": "ok",
+        "version": os.environ.get("GIT_SHA", "unknown"),
         "indexed_chunks": _store.count(),
         "fast_index": len(_store.fast) if _store.fast is not None else None,
         "sentence_index": len(_harness.sentence_index),
@@ -82,8 +84,6 @@ async def ask_audio(file: UploadFile = File(...), language_code: str = Form("hi-
 
 
 if __name__ == "__main__":
-    import os
-
     import uvicorn
 
     uvicorn.run("app:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)

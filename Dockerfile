@@ -27,6 +27,11 @@ ENV ONNX_ENCODER_DIR=/app/onnx_model
 RUN python scripts/export_onnx.py --out /app/onnx_model || \
     echo "ONNX export failed; falling back to the PyTorch encoder at runtime"
 
+# Stamped by CI so /health can report exactly which build is live -- a failed
+# image pull once left a stale container running and reporting healthy.
+ARG GIT_SHA=unknown
+ENV GIT_SHA=$GIT_SHA
+
 ENV CHROMA_PERSIST_DIR=/app/data/chroma
 ENV PORT=7860
 # Cap thread pools: default OMP/MKL behavior spawns one thread per core and

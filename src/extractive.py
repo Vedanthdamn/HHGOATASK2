@@ -48,25 +48,65 @@ def _centrality_scores(sentence_embeddings: np.ndarray) -> np.ndarray:
     return scores
 
 
-def try_extractive_synthesis(query: str, chunks: list[RetrievedChunk], embedder: Embedder) -> dict | None:
+def try_extractive_synthesis(query: str, chunks: list[RetrievedChunk], embedder: Embedder,
+                             query_embedding=None, sentence_index=None) -> dict | None:
     candidate_chunks = chunks[:MAX_CHUNKS_CONSIDERED]
 
     sentences: list[str] = []
     sentence_chunk_ids: list[str] = []
     sentence_order: list[tuple[int, int]] = []  # (chunk_rank, sentence_index) for stitching back in order
+    # Sentence vectors are assembled per chunk: precomputed where the chunk is
+    # in the index, embedded on the fly only for the ones that aren't. Each
+    # entry below is either a stored vector block or a (start, end) slice of
+    # `sentences` still awaiting embedding.
+    #
+    # The fallback is deliberately per-chunk rather than all-or-nothing: an
+    # earlier version bailed to embedding *everything* if any one chunk was
+    # missing, so a single unindexed chunk cost 193ms instead of 0.4ms and
+    # single-handedly blew the latency budget (see README).
+    blocks: list[np.ndarray | tuple[int, int]] = []
+
     for chunk_rank, c in enumerate(candidate_chunks):
-        for sent_idx, sent in enumerate(split_sentences(c.text)):
-            if len(sent.strip()) < 3:
-                continue
-            sentences.append(sent.strip())
+        stored = sentence_index.get(c.chunk_id) if sentence_index is not None else None
+        if stored is not None:
+            chunk_sentences, chunk_embs = stored
+        else:
+            chunk_sentences = [s.strip() for s in split_sentences(c.text) if len(s.strip()) >= 3]
+            chunk_embs = None
+        if not chunk_sentences:
+            continue  # nothing to contribute; costs nothing either way
+
+        start = len(sentences)
+        for sent_idx, sent in enumerate(chunk_sentences):
+            sentences.append(sent)
             sentence_chunk_ids.append(c.chunk_id)
             sentence_order.append((chunk_rank, sent_idx))
+        blocks.append(chunk_embs if chunk_embs is not None else (start, len(sentences)))
 
     if len(sentences) < 2:
         return None  # not enough material to synthesize; let another tier handle it
 
-    embeddings = embedder.encode([query] + sentences, normalize=True)
-    query_emb, sentence_embs = embeddings[0], embeddings[1:]
+    query_emb = np.asarray(query_embedding, dtype=np.float32) if query_embedding is not None else None
+    pending = [b for b in blocks if isinstance(b, tuple)]
+
+    if query_emb is None or pending:
+        # A single batched call covering only what is genuinely missing: the
+        # query (if it wasn't already embedded upstream for retrieval) plus the
+        # sentences of any unindexed chunks.
+        to_embed = ([] if query_emb is not None else [query])
+        for start, end in pending:
+            to_embed.extend(sentences[start:end])
+        fresh = embedder.encode(to_embed, normalize=True)
+        if query_emb is None:
+            query_emb, fresh = fresh[0], fresh[1:]
+        cursor = 0
+        for i, b in enumerate(blocks):
+            if isinstance(b, tuple):
+                n = b[1] - b[0]
+                blocks[i] = fresh[cursor : cursor + n]
+                cursor += n
+
+    sentence_embs = np.vstack(blocks).astype(np.float32)
 
     # Apple Accelerate's BLAS on macOS/arm64 raises spurious invalid/overflow
     # RuntimeWarnings on some matmul shapes even though the result is exact

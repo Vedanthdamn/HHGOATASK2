@@ -27,6 +27,7 @@ from src.embeddings import Embedder
 from src.extractive import try_extractive_synthesis
 from src.generation import generate_answer, try_extractive_answer
 from src.retrieval import RetrievedChunk, hybrid_retrieve
+from src.sentence_index import SentenceIndex
 from src.vectorstore import VectorStore
 from src.config import config
 
@@ -60,9 +61,14 @@ class PipelineResult:
 
 
 class RagHarness:
-    def __init__(self, store: VectorStore = None, embedder: Embedder = None):
+    def __init__(self, store: VectorStore = None, embedder: Embedder = None, sentence_index: SentenceIndex = None):
         self.embedder = embedder or Embedder()
         self.store = store or VectorStore(embedder=self.embedder)
+        # Sentence vectors for the synthesis tier, precomputed at index time so
+        # that tier costs numpy products instead of a transformer forward pass.
+        # Loading is best-effort: an absent index just means the tier falls back
+        # to embedding on the fly (slower, same answers).
+        self.sentence_index = sentence_index if sentence_index is not None else SentenceIndex.load()
         self._cache: list[tuple[np.ndarray, PipelineResult]] = []
 
     def _time_stage(self, timings: list[StageTiming], name: str, fn, *args, **kwargs):
@@ -167,6 +173,7 @@ class RagHarness:
         if gen_result is None:
             gen_result, err = self._time_stage(
                 timings, "generation_extractive_synthesis", try_extractive_synthesis, query, chunks, self.embedder,
+                query_embedding, self.sentence_index,
             )
             if err is not None:
                 gen_result = None

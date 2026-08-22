@@ -112,17 +112,32 @@ Run the benchmark yourself:
 python scripts/benchmark.py --n 50
 ```
 
-Results are written to `reports/latency_results.json`. From our own run over 50 real MSMARCO-XI queries against a 3,281-chunk index:
+Results are written to `reports/latency_results.json`. Measured over 50 real MSMARCO-XI queries against a 3,281-chunk index, **inside the same container image that is deployed** (single-threaded BLAS, 2 vCPU) rather than on a developer laptop — so these are production numbers, not best-case local ones:
 
-| Leg | P50 | P70 | P100 | Mean |
+| Leg | P50 | P70 | **P100** | Mean |
 |---|---|---|---|---|
-| Retrieval only (embed query + Chroma ANN + BM25 + RRF fusion) | 21.4ms | 27.1ms | 50.0ms | 24.1ms |
-| **Full pipeline** (retrieval + all guardrails + generation, tiered) | **47.7ms** | **58.6ms** | 307.5ms* | 55.1ms |
-| Full pipeline, extractive-tier queries only | 13.4ms | 14.5ms | 25.7ms | 15.4ms |
+| Retrieval only (embed query + Chroma ANN + BM25 + RRF fusion) | 39.5ms | 42.1ms | 66.5ms | 41.0ms |
+| **Full pipeline** (retrieval + all guardrails + generation, tiered) | **41.6ms** | **43.8ms** | **62.8ms** | 43.4ms |
+| Full pipeline, single-chunk extractive tier only | 42.0ms | 47.5ms | 53.3ms | 43.7ms |
+| Full pipeline, multi-chunk synthesis tier only | 41.6ms | 43.8ms | 62.8ms | 43.3ms |
 
-\* One outlier in 50 runs; P50/P70/mean are all comfortably sub-100ms. Not yet root-caused to a specific stage — flagged here rather than hidden.
+**Every percentile — including P100 — is inside the 200ms budget**, with ~3x headroom at the worst case. All 50 queries resolved through the non-LLM tiers (9 via single-chunk extraction, 41 via multi-chunk synthesis, 0 via Claude); 46 answered, 4 correctly refused by the retrieval-confidence guardrail. Claude remains wired in as tier 3 and is exercised by our guardrail tests, it just wasn't needed by this benchmark set.
 
-Of the 50 queries, **all 50 were answered, and all 50 resolved through the non-LLM tiers** (13 via single-chunk extraction, 37 via multi-chunk synthesis, 0 via Claude). The full pipeline — not just retrieval — meets the 200ms target on both the confident-match and needs-synthesis paths. Claude remains wired in as tier 3 and is exercised by our guardrail tests (e.g. genuinely ambiguous or synthesis-resistant queries), it just wasn't needed by this particular benchmark set.
+### How the P100 was fixed (it used to be 307ms)
+
+An earlier revision of this README reported a 307ms P100 outlier as "not yet root-caused." It is now root-caused and fixed, and the fix is the most interesting piece of engineering in the repo.
+
+Profiling per stage showed the cost was not retrieval, not the LLM, and not the degenerate-chunk case we had assumed — it was **tier 2 embedding sentences on the query path**. `try_extractive_synthesis` scores individual sentences from the top 5 chunks, and it was calling the sentence-transformer on all of them per request: a *second* forward pass, measured at **613–864ms**, i.e. ~95% of end-to-end latency on the path 41 of 50 queries take. (Because the old benchmark bucketed only `extractive` and `llm` timings, the synthesis tier — the dominant path — had no bucket of its own and was invisible in the report. It now has one.)
+
+The corpus is static, so that work does not belong on the hot path at all. `src/sentence_index.py` splits every indexed chunk into sentences **once at index time**, embeds them, and persists the vectors alongside the Chroma index (7,384 sentences over 3,270 chunks, 7.7MB). At query time tier 2 looks up the stored vectors for the already-retrieved chunks and reuses the query embedding computed upstream for retrieval — so it does **zero model calls**, just two numpy products. That tier went from ~600ms to ~0.4ms.
+
+Because the vectors are computed with the same model and the same normalization, this is a pure latency change: we verified **all 50 answers are byte-identical** between the precomputed and on-the-fly paths (status, generation tier, and answer text), so it is not a quality/speed trade.
+
+One further bug surfaced while validating it, and is worth recording because it is the kind that hides easily: the first version of the lookup fell back to on-the-fly embedding **all-or-nothing**, so a single chunk missing from the sentence index (11 chunks split into zero usable sentences and were skipped at build time) discarded every precomputed vector for that query and re-embedded all five chunks — 193ms instead of 0.4ms, reproducibly, leaving a 232ms P100. The fallback is now **per chunk**: an unindexed chunk costs only its own sentences, and a stale or absent index degrades latency gracefully instead of falling off a cliff. That is what took P100 from 232ms to 63ms.
+
+```bash
+python scripts/build_sentence_index.py   # run after build_index.py, or whenever the chunk index is rebuilt
+```
 
 ## Setup
 
@@ -137,6 +152,7 @@ Build the index (downloads a sample of MSMARCO-XI, chunks, embeds, indexes):
 
 ```bash
 python scripts/build_index.py --lang hi --sample-size 2000
+python scripts/build_sentence_index.py   # precomputes tier-2 sentence vectors; see Latency
 ```
 
 Run the server:
@@ -161,6 +177,7 @@ src/
   chunking.py     multi-strategy chunking router (atomic/semantic/sentence-window/fixed-size)
   embeddings.py   local multilingual sentence-transformers wrapper
   vectorstore.py  Chroma (dense) + BM25 (sparse) persistent index
+  sentence_index.py  sentence-level embeddings precomputed at index time, so tier 2 makes no model call
   retrieval.py    hybrid retrieval: RRF fusion + is_selected-aware reranking + dual scoring
   stt.py          Sarvam speech-to-text client
   generation.py   tier 1 (extractive) + tier 3 (Claude structured tool-call)
@@ -169,6 +186,7 @@ src/
   harness.py      orchestration: typed stages, semantic cache, tiered generation, retries, timing, error recovery
 scripts/
   build_index.py  one-shot indexing script
+  build_sentence_index.py  precomputes tier-2 sentence embeddings off the query path
   benchmark.py    latency benchmark -> P50/P70/P100 report, split by generation tier
 app.py            FastAPI server (JSON + audio endpoints)
 static/index.html demo UI (mic recording via MediaRecorder)

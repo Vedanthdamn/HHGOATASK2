@@ -81,7 +81,7 @@ def main():
 
     if not args.skip_generation and config.ANTHROPIC_API_KEY:
         harness = RagHarness(store=store, embedder=embedder)
-        full_times, extractive_times, llm_times = [], [], []
+        full_times, extractive_times, synthesis_times, llm_times = [], [], [], []
         statuses, modes = [], []
         for q in queries:
             t0 = time.perf_counter()
@@ -92,6 +92,8 @@ def main():
             modes.append(res.generation_mode or "n/a")
             if res.generation_mode == "extractive":
                 extractive_times.append(elapsed)
+            elif res.generation_mode == "extractive_synthesis":
+                synthesis_times.append(elapsed)
             elif res.generation_mode == "llm":
                 llm_times.append(elapsed)
 
@@ -102,6 +104,10 @@ def main():
         if extractive_times:
             results["end_to_end_extractive_only"] = summarize(
                 "end_to_end, extractive fast-path queries only (no LLM network call)", extractive_times,
+            )
+        if synthesis_times:
+            results["end_to_end_extractive_synthesis_only"] = summarize(
+                "end_to_end, extractive-synthesis queries only (no LLM network call)", synthesis_times,
             )
         if llm_times:
             results["end_to_end_llm_only"] = summarize(
@@ -116,6 +122,9 @@ def main():
     results["retrieval_meets_target"] = results["retrieval_only"]["p100_ms"] < 200
     if "end_to_end_extractive_only" in results:
         results["extractive_fast_path_meets_target"] = results["end_to_end_extractive_only"]["p100_ms"] < 200
+    if "end_to_end_mixed" in results:
+        # The headline number: every non-LLM query, worst case included.
+        results["end_to_end_meets_target"] = results["end_to_end_mixed"]["p100_ms"] < 200
 
     reports_dir = Path(__file__).resolve().parent.parent / "reports"
     reports_dir.mkdir(exist_ok=True)

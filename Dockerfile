@@ -34,12 +34,14 @@ ENV GIT_SHA=$GIT_SHA
 
 ENV CHROMA_PERSIST_DIR=/app/data/chroma
 ENV PORT=7860
-# Cap thread pools: default OMP/MKL behavior spawns one thread per core and
-# allocates per-thread buffers, which adds up fast on memory-constrained
-# hosts (Render free tier caps at 512MB) without materially helping latency
-# at our request volume.
-ENV OMP_NUM_THREADS=1
-ENV MKL_NUM_THREADS=1
+# Thread pools are capped rather than left to spawn one thread per core, which
+# allocates per-thread buffers for little gain at our request volume. The cap
+# is 2 because that is the vCPU count of the instance this runs on: measured
+# on the ONNX encoder, 2 threads is ~26% faster than 1 (7.96ms -> 5.91ms),
+# while oversubscribing past the core count costs more in contention than it
+# returns. (Previously 1, sized for a 512MB Render tier we no longer use.)
+ENV OMP_NUM_THREADS=2
+ENV MKL_NUM_THREADS=2
 ENV TOKENIZERS_PARALLELISM=false
 EXPOSE 7860
 

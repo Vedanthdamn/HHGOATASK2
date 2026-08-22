@@ -16,7 +16,53 @@ BM25_PATH = os.path.join(config.CHROMA_PERSIST_DIR, "bm25.pkl")
 
 
 def _tokenize(text: str) -> list[str]:
+    """Index-side tokenizer. Unchanged: the persisted BM25 index was fitted
+    with it, so altering it would invalidate the committed corpus."""
     return text.lower().split()
+
+
+# Function words are stripped from BM25 *queries* (not from the index).
+#
+# BM25 divides term weight by document length, so a very short document that
+# happens to contain a query's function words scores enormously on them. The
+# corpus is full of 3-token question chunks ("वसेक्टॉमी क्या है?" -- "what is a
+# vasectomy?"), and every query phrased as "X क्या है?" matched all of them on
+# "क्या"/"है" alone. They then won rank 1 and the extractive tier returned one
+# verbatim, so "फेनेल बीज क्या है?" ("what is fennel seed?") answered with
+# "वसेक्टॉमी क्या है?" -- a different question, not even an answer.
+#
+# IDF alone does not save us here: rank_bm25 floors the IDF of very common
+# terms at a small positive epsilon rather than letting it go negative, so
+# function words keep contributing weight.
+#
+# Filtering at query time only, rather than re-fitting the index: measured on
+# 200 queries this scored better on both answer quality (0.256 -> 0.269 cosine
+# to MSMARCO's reference answers) and leakage-free retrieval (R@1 0.775 ->
+# 0.795) than rebuilding the index with the same list, and it leaves the
+# committed index untouched.
+#
+# Hindi + English, matching DATASET_LANG=hi. A different MSMARCO-XI language
+# config would want its own list; an unrecognized language simply keeps all
+# terms, i.e. today's behavior.
+_QUERY_STOPWORDS = frozenset("""
+क्या है हैं हूँ हूं का की के को में से पर और या यह वह ये वे कि जो तो ही भी था थी थे हो होता होती होते
+कर करना किया एक इस उस अपने अपनी नहीं ना कैसे कब कहाँ कहां कौन क्यों किस किसी कोई कुछ मैं मेरा मेरी
+हम आप सकते सकता सकती गया गई गए रहा रही रहे लिए लिये साथ द्वारा
+what is are am the a an of in on to for and or how when where who why which do does did can could
+will would i my we you it this that these those be been was were has have had with from by at as
+""".split())
+
+_STRIP_CHARS = "?।॥!.,:;\"'()[]{}"
+
+
+def _tokenize_query(text: str) -> list[str]:
+    """Index tokenization minus function words.
+
+    Membership is tested against the punctuation-stripped form (index tokens
+    carry trailing punctuation, e.g. "है?"), but the *original* token is kept
+    so it still matches the index, which was built without stripping.
+    """
+    return [t for t in _tokenize(text) if t.strip(_STRIP_CHARS) not in _QUERY_STOPWORDS]
 
 
 class VectorStore:
@@ -130,7 +176,9 @@ class VectorStore:
         top_k = top_k or config.TOP_K_BM25
         if self.bm25 is None:
             return []
-        tokenized_query = _tokenize(query)
+        tokenized_query = _tokenize_query(query)
+        if not tokenized_query:
+            return []  # nothing but function words: no lexical signal, leave it to dense retrieval
         if self.fast is not None:
             return self.fast.bm25_search(tokenized_query, top_k)
         scores = self.bm25.get_scores(tokenized_query)

@@ -92,6 +92,24 @@ Every chunk is **metadata-aware**: it carries `doc_id`, `query_id`, `query_type`
 
 Each `RetrievedChunk` carries **two** scores, because they answer different questions: `score` is rank-fused and normalized by the candidate set's own max, so the top result is *relatively* the best match — but that means it always reads ~1.0 even when nothing in the corpus is actually relevant to an off-topic query. `raw_semantic_score` is the un-fused dense cosine similarity, an *absolute* number comparable across queries. The retrieval guardrail checks both (see below) — this was a real bug we caught and fixed during development (below).
 
+### A retrieval bug the latency work surfaced: function words in BM25
+
+Once the pipeline was fast enough to iterate on, answer quality got the same treatment, and a real bug fell out of it.
+
+BM25 divides a term's weight by document length, so a very short document containing a query's *function words* scores enormously on them. This corpus is full of three-token question chunks — `वसेक्टॉमी क्या है?` ("what is a vasectomy?") — and every query phrased as "X क्या है?" matched all of them on `क्या` / `है` alone. They won rank 1, and the extractive tier faithfully returned one verbatim:
+
+| Query | Answer returned |
+|---|---|
+| "What is fennel seed?" | **"What is a vasectomy?"** |
+| "Early symptoms of lymphoma" | **"CVS"** |
+| "What is Tanto Japanese?" | *(refused — nothing relevant survived)* |
+
+Not merely mis-ranked: the answer was a *different question*, and not an answer at all. IDF does not save this, because `rank_bm25` floors the IDF of very common terms at a small positive epsilon rather than letting it go negative, so function words keep contributing weight.
+
+The fix filters function words out of BM25 **queries** while leaving the index untouched (`_tokenize_query` in `src/vectorstore.py`). Measured over 200 queries, that beat re-fitting the whole index with the same stoplist on both metrics — answer quality **0.256 → 0.269** (cosine to MSMARCO's own reference answers) and leakage-free retrieval **R@1 0.775 → 0.795** — while leaving the committed index alone. The same three queries above now return the Japanese short sword, seed-producing vascular plants, and actual early symptoms.
+
+**On measuring this honestly.** The obvious knob was the `is_selected` boost, and sweeping it looked spectacular: R@1 `0.389 → 0.653`. It was measurement error. The eval counted `is_selected` chunks as correct while the boost boosted exactly that attribute — circular. Two probes settled it: the metric **saturated** (boost `0.02` and boost `10.0` scored identically, so retrieval relevance had stopped mattering), and against a leakage-free metric — *did we retrieve chunks from the right query's passage set*, which the flag cannot game — raising the boost made things **worse** (R@1 `0.778 → 0.708`). The boost stays at `0.005`. Every number quoted above is from the leakage-free metric or from reference-answer similarity, never from the metric the change optimizes.
+
 ## Guardrails
 
 Five independent veto points (`src/guardrails.py`), any of which can end the pipeline with a `refused` result instead of a possibly-wrong answer:
@@ -116,12 +134,12 @@ Results are written to `reports/latency_results.json`, over 50 real MSMARCO-XI q
 
 | Leg | P50 | P70 | **P100** | Mean |
 |---|---|---|---|---|
-| Retrieval only (embed query + dense + BM25 + RRF fusion) | 9.7ms | 11.5ms | 21.3ms | 10.8ms |
-| **Full pipeline** (retrieval + all guardrails + generation, tiered) | **10.1ms** | **11.7ms** | **21.9ms** | 11.2ms |
-| Full pipeline, single-chunk extractive tier only | 9.5ms | 9.6ms | 16.3ms | 10.5ms |
-| Full pipeline, multi-chunk synthesis tier only | 11.2ms | 12.0ms | 21.9ms | 11.4ms |
+| Retrieval only (embed query + dense + BM25 + RRF fusion) | 11.0ms | 13.0ms | 24.8ms | 12.4ms |
+| **Full pipeline** (retrieval + all guardrails + generation, tiered) | **11.6ms** | **13.6ms** | **24.4ms** | 13.0ms |
+| Full pipeline, single-chunk extractive tier only | 11.1ms | 13.1ms | 19.4ms | 12.7ms |
+| Full pipeline, multi-chunk synthesis tier only | 12.3ms | 13.6ms | 24.4ms | 13.0ms |
 
-**Every percentile — including P100 — is inside the 200ms budget**, with ~9x headroom at the worst case. All queries resolved through the non-LLM tiers (8 via single-chunk extraction, 41 via multi-chunk synthesis, 0 via Claude); 46 answered, 4 correctly refused by the guardrails. Claude remains wired in as tier 3 and is exercised by our guardrail tests, it just wasn't needed by this benchmark set.
+**Every percentile — including P100 — is inside the 200ms budget**, with ~8x headroom at the worst case. All queries resolved through the non-LLM tiers (8 via single-chunk extraction, 42 via multi-chunk synthesis, 0 via Claude); 47 answered, 3 correctly refused by the guardrails. Claude remains wired in as tier 3 and is exercised by our guardrail tests, it just wasn't needed by this benchmark set.
 
 Everything around the model is now effectively free: of the 10.1ms median, retrieval after embedding is ~0.5ms and all five guardrails together are ~0.3ms. **What remains is the transformer forward pass**, and the P100 is simply the longest query in the set — latency correlates with query token count at **r = 0.957** (37 tokens at P100 vs 7–9 tokens at the fastest), and a second fully-warm pass reproduces the same P100, so it is sequence length rather than warmup. Cutting it further means a smaller encoder or a quantized one, which trades retrieval quality for milliseconds we don't need — the budget is 200ms.
 

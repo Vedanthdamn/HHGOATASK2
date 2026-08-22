@@ -17,3 +17,9 @@ pydantic==2.9.2
 tenacity==9.0.0
 duckdb>=1.1.3
 huggingface_hub==0.24.6
+
+# Low-latency query encoding. onnxruntime is the runtime path; onnx/onnxscript
+# are only needed by scripts/export_onnx.py at image build time.
+onnxruntime>=1.19.0
+onnx>=1.16.0
+onnxscript>=0.1.0

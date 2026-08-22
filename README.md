@@ -116,14 +116,14 @@ Results are written to `reports/latency_results.json`, over 50 real MSMARCO-XI q
 
 | Leg | P50 | P70 | **P100** | Mean |
 |---|---|---|---|---|
-| Retrieval only (embed query + dense + BM25 + RRF fusion) | 16.3ms | 17.4ms | 22.0ms | 16.9ms |
-| **Full pipeline** (retrieval + all guardrails + generation, tiered) | **17.2ms** | **18.2ms** | **23.2ms** | 17.7ms |
-| Full pipeline, single-chunk extractive tier only | 17.4ms | 18.3ms | 21.1ms | 17.5ms |
-| Full pipeline, multi-chunk synthesis tier only | 17.3ms | 18.2ms | 23.2ms | 17.8ms |
+| Retrieval only (embed query + dense + BM25 + RRF fusion) | 9.7ms | 11.5ms | 21.3ms | 10.8ms |
+| **Full pipeline** (retrieval + all guardrails + generation, tiered) | **10.1ms** | **11.7ms** | **21.9ms** | 11.2ms |
+| Full pipeline, single-chunk extractive tier only | 9.5ms | 9.6ms | 16.3ms | 10.5ms |
+| Full pipeline, multi-chunk synthesis tier only | 11.2ms | 12.0ms | 21.9ms | 11.4ms |
 
 **Every percentile — including P100 — is inside the 200ms budget**, with ~9x headroom at the worst case. All queries resolved through the non-LLM tiers (8 via single-chunk extraction, 41 via multi-chunk synthesis, 0 via Claude); 46 answered, 4 correctly refused by the guardrails. Claude remains wired in as tier 3 and is exercised by our guardrail tests, it just wasn't needed by this benchmark set.
 
-At this point **~95% of what remains is the query embedding itself** (`retrieval_only` P50 is 16.3ms of the 17.2ms end-to-end figure, and retrieval after embedding is ~0.5ms). The pipeline around the model is essentially free; the transformer forward pass is the floor.
+Everything around the model is now effectively free: of the 10.1ms median, retrieval after embedding is ~0.5ms and all five guardrails together are ~0.3ms. **What remains is the transformer forward pass**, and the P100 is simply the longest query in the set — latency correlates with query token count at **r = 0.957** (37 tokens at P100 vs 7–9 tokens at the fastest), and a second fully-warm pass reproduces the same P100, so it is sequence length rather than warmup. Cutting it further means a smaller encoder or a quantized one, which trades retrieval quality for milliseconds we don't need — the budget is 200ms.
 
 Measured against the **live deployment** (EC2 `c7i-flex.large`), end to end from synthesized Hindi speech through Sarvam STT to a grounded answer:
 
@@ -166,6 +166,14 @@ With the synthesis tier fixed, retrieval became the next bottleneck at ~90ms liv
 The corpus is small and static, so it is simply held resident: one normalized float32 matrix for dense (`M @ q`, a single BLAS call, and **exact** — no HNSW recall cliff), a classic inverted index with precomputed BM25 weights for sparse (cost scales with postings touched, not corpus size), and a dict for documents. **Retrieval went from 8.9ms to 0.55ms** (measured on identical hardware; ~90ms → ~0.5ms live).
 
 The BM25 weights are derived from the already-fitted `BM25Okapi` object — its own `idf`, `k1`, `b`, `avgdl` and per-document term frequencies — so scores are reproduced exactly rather than reimplemented and hoped to match.
+
+### Query encoding: same weights, compiled graph
+
+With retrieval at ~0.5ms, ~95% of what was left was the single transformer forward pass to embed the query. That pass is tiny — one short sentence through a 12-layer MiniLM — so most of its cost is PyTorch dispatch overhead rather than arithmetic, which is precisely what an ahead-of-time compiled graph removes.
+
+`src/onnx_encoder.py` runs the **same weights** through ONNX Runtime: **22.2ms → 10.0ms single-threaded (2.2x)**. This is a runtime change, not a model change — the vectors are the same ones (cosine `1.00000000` vs PyTorch, max absolute difference ~1e-7, minimum `0.99999988` across 50 real queries), so the existing index stays valid and **all 50 end-to-end answers are identical**.
+
+The exported graph is ~488MB (the XLM-R vocabulary embedding dominates), so it is built at image build time by `scripts/export_onnx.py` rather than committed. Loading is best-effort throughout: if the artifact or `onnxruntime` is missing, `Embedder` silently falls back to sentence-transformers — correct, just slower. Because a silent fallback would otherwise look like a healthy deploy, `/health` reports which backend is actually live.
 
 Two findings from validating equivalence, both worth recording:
 

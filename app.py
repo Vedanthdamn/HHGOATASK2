@@ -57,6 +57,7 @@ def health():
         "indexed_chunks": _store.count(),
         "fast_index": len(_store.fast) if _store.fast is not None else None,
         "sentence_index": len(_harness.sentence_index),
+        "encoder_backend": _embedder.backend,  # "onnx" (fast path) or "torch" (fallback)
     }
 
 

@@ -341,9 +341,11 @@ const rowLabels = {
   retrieval_only: 'Retrieval Only',
   end_to_end_mixed: 'Full Pipeline (Mixed)',
   end_to_end_extractive_only: 'Full Pipeline (Extractive-Only)',
+  end_to_end_extractive_synthesis_only: 'Full Pipeline (Synthesis-Only)',
   end_to_end_llm_only: 'Full Pipeline (LLM-Fallback Only)',
 };
-const rowOrder = ['retrieval_only', 'end_to_end_mixed', 'end_to_end_extractive_only', 'end_to_end_llm_only'];
+const rowOrder = ['retrieval_only', 'end_to_end_mixed', 'end_to_end_extractive_only',
+                  'end_to_end_extractive_synthesis_only', 'end_to_end_llm_only'];
 const modeLabels = { extractive: 'Extractive', extractive_synthesis: 'Synthesis', llm: 'Claude' };
 
 fetch('/metrics')
@@ -351,7 +353,8 @@ fetch('/metrics')
   .then(data => {
     document.getElementById('metricsCaption').innerHTML =
       `Target: <b>&lt;${data.target_ms}ms</b> · Retrieval leg meets target: <b>${data.retrieval_meets_target ? 'YES' : 'NO'}</b>` +
-      (data.extractive_fast_path_meets_target !== undefined ? ` · Extractive fast path meets target: <b>${data.extractive_fast_path_meets_target ? 'YES' : 'NO'}</b>` : '');
+      // The headline claim: the *whole* pipeline, worst case included, not just the retrieval leg.
+      (data.end_to_end_meets_target !== undefined ? ` · Full pipeline meets target at every percentile incl. P100: <b>${data.end_to_end_meets_target ? 'YES' : 'NO'}</b>` : '');
 
     const tbody = document.getElementById('metricsBody');
     tbody.innerHTML = '';
@@ -359,13 +362,16 @@ fetch('/metrics')
       const row = data[key];
       if (!row) continue;
       const p50Pass = row.p50_ms < data.target_ms;
+      // P100 is the number the 200ms requirement actually turns on -- a passing
+      // P50 with a failing worst case is not a pipeline that meets the target.
+      const p100Pass = row.p100_ms < data.target_ms;
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="metric-name">${rowLabels[key] || key}</td>
         <td>${row.n}</td>
         <td class="metric-p50 ${p50Pass ? 'pass' : 'fail'}">${row.p50_ms.toFixed(1)}ms</td>
         <td class="metric-p70">${row.p70_ms.toFixed(1)}ms</td>
-        <td>${row.p100_ms.toFixed(1)}ms</td>
+        <td class="${p100Pass ? 'pass' : 'fail'}">${row.p100_ms.toFixed(1)}ms</td>
         <td>${row.mean_ms.toFixed(1)}ms</td>
         <td>${row.min_ms.toFixed(1)}ms</td>
       `;

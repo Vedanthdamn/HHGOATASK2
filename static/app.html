@@ -182,11 +182,14 @@
     <span class="techpill">Target SLA &lt; 200ms</span>
   </div>
 
+  <!-- Populated from /metrics and /health at load, so these can never drift
+       out of sync with the committed benchmark report the way hardcoded
+       numbers did. Values below are placeholders until the fetch resolves. -->
   <div class="statgrid">
-    <div class="stat"><div class="num">21ms</div><div class="label">P50 Retrieval</div></div>
-    <div class="stat"><div class="num">48ms</div><div class="label">P50 Full Pipeline</div></div>
-    <div class="stat"><div class="num">3281</div><div class="label">Indexed Chunks</div></div>
-    <div class="stat"><div class="num">5</div><div class="label">Guardrail Layers</div></div>
+    <div class="stat"><div class="num" id="statRetrieval">—</div><div class="label">P50 Retrieval</div></div>
+    <div class="stat"><div class="num" id="statPipeline">—</div><div class="label">P50 Full Pipeline</div></div>
+    <div class="stat"><div class="num" id="statP100">—</div><div class="label">P100 Full Pipeline</div></div>
+    <div class="stat"><div class="num" id="statChunks">—</div><div class="label">Indexed Chunks</div></div>
   </div>
 
   <div class="controls">
@@ -218,6 +221,22 @@ const recordBtn = document.getElementById('recordBtn');
 const recStatus = document.getElementById('recStatus');
 const resultDiv = document.getElementById('result');
 const textQuery = document.getElementById('textQuery');
+
+// Headline stats come from the same benchmark report served at /metrics, so
+// the page always agrees with reports/latency_results.json.
+(async () => {
+  const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.textContent = v; };
+  try {
+    const m = await (await fetch('/metrics')).json();
+    set('statRetrieval', `${Math.round(m.retrieval_only.p50_ms)}ms`);
+    set('statPipeline', `${Math.round(m.end_to_end_mixed.p50_ms)}ms`);
+    set('statP100', `${Math.round(m.end_to_end_mixed.p100_ms)}ms`);
+  } catch (e) { /* stats are decorative; a failed fetch must not break the demo */ }
+  try {
+    const h = await (await fetch('/health')).json();
+    set('statChunks', h.indexed_chunks);
+  } catch (e) {}
+})();
 
 recordBtn.onclick = async () => {
   if (mediaRecorder && mediaRecorder.state === 'recording') {

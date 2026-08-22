@@ -6,3 +6,4 @@ data/*
 !data/chroma/
 *.egg-info/
 .DS_Store
+venv/

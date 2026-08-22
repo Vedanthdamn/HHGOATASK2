@@ -48,7 +48,16 @@ def app_ui():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "indexed_chunks": _store.count()}
+    # `fast_index` reports whether the in-memory exact search index built. It
+    # falls back to the Chroma/rank_bm25 path silently when it can't (correct,
+    # but ~15x slower), so surface it rather than let a silent fallback look
+    # like a healthy deploy.
+    return {
+        "status": "ok",
+        "indexed_chunks": _store.count(),
+        "fast_index": len(_store.fast) if _store.fast is not None else None,
+        "sentence_index": len(_harness.sentence_index),
+    }
 
 
 @app.get("/metrics")

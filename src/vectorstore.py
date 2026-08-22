@@ -9,6 +9,7 @@ from rank_bm25 import BM25Okapi
 from src.chunking import Chunk
 from src.config import config
 from src.embeddings import Embedder
+from src.fast_index import FastIndex
 
 COLLECTION_NAME = "msmarco_xi_chunks"
 BM25_PATH = os.path.join(config.CHROMA_PERSIST_DIR, "bm25.pkl")
@@ -32,6 +33,19 @@ class VectorStore:
         self.bm25 = None
         self.bm25_chunk_ids: list[str] = []
         self._load_bm25()
+        # Resident exact index for the query path. Built once here (a few
+        # hundred ms) to take per-query SQLite round trips and full-corpus
+        # Python scans off the hot path -- see src/fast_index.py. Best-effort:
+        # if it can't be built, both legs fall back to the Chroma/rank_bm25
+        # path below, which returns the same results more slowly.
+        self.fast: FastIndex | None = None
+        self._build_fast_index()
+
+    def _build_fast_index(self):
+        try:
+            self.fast = FastIndex.from_store(self.collection, self.bm25, self.bm25_chunk_ids)
+        except Exception:  # noqa: BLE001 - never let an optimization break startup
+            self.fast = None
 
     # ---------------- indexing ----------------
     def add_chunks(self, chunks: list[Chunk], batch_size: int = 128):
@@ -92,6 +106,8 @@ class VectorStore:
     def semantic_search(self, query: str, top_k: int = None, query_embedding=None) -> list[dict]:
         top_k = top_k or config.TOP_K_SEMANTIC
         query_emb = query_embedding if query_embedding is not None else self.embedder.encode_one(query)
+        if self.fast is not None:
+            return self.fast.dense_search(query_emb, top_k)
         results = self.collection.query(
             query_embeddings=[query_emb.tolist()],
             n_results=top_k,
@@ -115,6 +131,8 @@ class VectorStore:
         if self.bm25 is None:
             return []
         tokenized_query = _tokenize(query)
+        if self.fast is not None:
+            return self.fast.bm25_search(tokenized_query, top_k)
         scores = self.bm25.get_scores(tokenized_query)
         ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
 

@@ -112,16 +112,18 @@ Run the benchmark yourself:
 python scripts/benchmark.py --n 50
 ```
 
-Results are written to `reports/latency_results.json`. Measured over 50 real MSMARCO-XI queries against a 3,281-chunk index, run **inside the deployed container image** (single-threaded BLAS, `OMP_NUM_THREADS=1`) rather than against a bare local interpreter — so the thread/BLAS configuration matches production rather than flattering it:
+Results are written to `reports/latency_results.json`, over 50 real MSMARCO-XI queries against a 3,281-chunk index:
 
 | Leg | P50 | P70 | **P100** | Mean |
 |---|---|---|---|---|
-| Retrieval only (embed query + Chroma ANN + BM25 + RRF fusion) | 39.5ms | 42.1ms | 66.5ms | 41.0ms |
-| **Full pipeline** (retrieval + all guardrails + generation, tiered) | **41.6ms** | **43.8ms** | **62.8ms** | 43.4ms |
-| Full pipeline, single-chunk extractive tier only | 42.0ms | 47.5ms | 53.3ms | 43.7ms |
-| Full pipeline, multi-chunk synthesis tier only | 41.6ms | 43.8ms | 62.8ms | 43.3ms |
+| Retrieval only (embed query + dense + BM25 + RRF fusion) | 16.3ms | 17.4ms | 22.0ms | 16.9ms |
+| **Full pipeline** (retrieval + all guardrails + generation, tiered) | **17.2ms** | **18.2ms** | **23.2ms** | 17.7ms |
+| Full pipeline, single-chunk extractive tier only | 17.4ms | 18.3ms | 21.1ms | 17.5ms |
+| Full pipeline, multi-chunk synthesis tier only | 17.3ms | 18.2ms | 23.2ms | 17.8ms |
 
-**Every percentile — including P100 — is inside the 200ms budget**, with ~3x headroom at the worst case. All 50 queries resolved through the non-LLM tiers (9 via single-chunk extraction, 41 via multi-chunk synthesis, 0 via Claude); 46 answered, 4 correctly refused by the guardrails. Claude remains wired in as tier 3 and is exercised by our guardrail tests, it just wasn't needed by this benchmark set.
+**Every percentile — including P100 — is inside the 200ms budget**, with ~9x headroom at the worst case. All queries resolved through the non-LLM tiers (8 via single-chunk extraction, 41 via multi-chunk synthesis, 0 via Claude); 46 answered, 4 correctly refused by the guardrails. Claude remains wired in as tier 3 and is exercised by our guardrail tests, it just wasn't needed by this benchmark set.
+
+At this point **~95% of what remains is the query embedding itself** (`retrieval_only` P50 is 16.3ms of the 17.2ms end-to-end figure, and retrieval after embedding is ~0.5ms). The pipeline around the model is essentially free; the transformer forward pass is the floor.
 
 Measured against the **live deployment** (EC2 `c7i-flex.large`), end to end from synthesized Hindi speech through Sarvam STT to a grounded answer:
 
@@ -151,6 +153,24 @@ One further bug surfaced while validating it, and is worth recording because it 
 ```bash
 python scripts/build_sentence_index.py   # run after build_index.py, or whenever the chunk index is rebuilt
 ```
+
+### Retrieval: exact in-memory search instead of per-query round trips
+
+With the synthesis tier fixed, retrieval became the next bottleneck at ~90ms live. That was also not algorithmic: a 3,281 × 384 dense scan is ~1.3M multiply-adds, i.e. microseconds. The time was per-query *overhead* (`src/fast_index.py`):
+
+1. `chroma.collection.query()` — HNSW + a SQLite read + Python object marshalling, per query.
+2. `rank_bm25.get_scores()` — builds a full-corpus numpy array **per query term** via a Python list comprehension over every document, so cost scales with corpus size even though only documents containing the term can score above zero.
+3. `sorted(range(n))` over all 3,281 documents to take the top 8.
+4. A **second** SQLite round trip purely to fetch the text of the BM25 hits.
+
+The corpus is small and static, so it is simply held resident: one normalized float32 matrix for dense (`M @ q`, a single BLAS call, and **exact** — no HNSW recall cliff), a classic inverted index with precomputed BM25 weights for sparse (cost scales with postings touched, not corpus size), and a dict for documents. **Retrieval went from 8.9ms to 0.55ms** (measured on identical hardware; ~90ms → ~0.5ms live).
+
+The BM25 weights are derived from the already-fitted `BM25Okapi` object — its own `idf`, `k1`, `b`, `avgdl` and per-document term frequencies — so scores are reproduced exactly rather than reimplemented and hoped to match.
+
+Two findings from validating equivalence, both worth recording:
+
+- **Ordering must be stable.** The first version used `argpartition` + an unstable `argsort`, which silently reordered *ties* — and BM25 produces many equal scores. That alone changed which chunks were retrieved on 11 of 50 queries. Matching Python's stable `sorted` (equal scores keep ascending index order) took dense agreement to 48/50 and BM25 to 49/50; the remaining dense differences carry **identical cosine mass**, i.e. they are ties, not worse retrieval.
+- **A real bug fell out of it.** For the query `सिरियस एक्स.एम.वी.` neither token exists in the BM25 vocabulary, so *all 3,281 documents score exactly 0.0* — and the old code returned the 8 arbitrary zero-scored documents that happened to sort first, which then polluted RRF fusion. That is why an unrelated Sirius XM query was answering with a Manhattan Project passage. The inverted index returns no sparse results when no query term matches, so fusion falls back to the genuine dense matches.
 
 ## Setup
 

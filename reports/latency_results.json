@@ -2,46 +2,47 @@
   "retrieval_only": {
     "stage": "retrieval_only (embed+ANN+BM25+fusion)",
     "n": 50,
-    "p50_ms": 39.48,
-    "p70_ms": 42.1,
-    "p100_ms": 66.47,
-    "mean_ms": 41.02,
-    "min_ms": 34.19
+    "p50_ms": 16.34,
+    "p70_ms": 17.36,
+    "p100_ms": 21.98,
+    "mean_ms": 16.87,
+    "min_ms": 13.53
   },
   "end_to_end_mixed": {
     "stage": "end_to_end (retrieval+guardrails+generation, extractive fast path where confident, Claude fallback otherwise)",
     "n": 50,
-    "p50_ms": 41.56,
-    "p70_ms": 43.84,
-    "p100_ms": 62.76,
-    "mean_ms": 43.39,
-    "min_ms": 35.02
+    "p50_ms": 17.19,
+    "p70_ms": 18.19,
+    "p100_ms": 23.18,
+    "mean_ms": 17.7,
+    "min_ms": 15.21
   },
   "end_to_end_extractive_only": {
     "stage": "end_to_end, extractive fast-path queries only (no LLM network call)",
-    "n": 9,
-    "p50_ms": 42.02,
-    "p70_ms": 47.54,
-    "p100_ms": 53.29,
-    "mean_ms": 43.74,
-    "min_ms": 35.8
+    "n": 8,
+    "p50_ms": 17.42,
+    "p70_ms": 18.31,
+    "p100_ms": 21.14,
+    "mean_ms": 17.46,
+    "min_ms": 15.21
   },
   "end_to_end_extractive_synthesis_only": {
     "stage": "end_to_end, extractive-synthesis queries only (no LLM network call)",
     "n": 41,
-    "p50_ms": 41.56,
-    "p70_ms": 43.84,
-    "p100_ms": 62.76,
-    "mean_ms": 43.32,
-    "min_ms": 35.02
+    "p50_ms": 17.33,
+    "p70_ms": 18.19,
+    "p100_ms": 23.18,
+    "mean_ms": 17.8,
+    "min_ms": 15.24
   },
   "status_breakdown": {
-    "refused": 4,
-    "answered": 46
+    "answered": 46,
+    "refused": 4
   },
   "generation_mode_breakdown": {
-    "extractive_synthesis": 41,
-    "extractive": 9
+    "extractive": 8,
+    "n/a": 1,
+    "extractive_synthesis": 41
   },
   "target_ms": 200,
   "retrieval_meets_target": true,
